@@ -1,0 +1,6 @@
+aws_region           = "eu-central-1"
+vpc_id                = "vpc-00000000000000000"
+private_subnet_id     = "subnet-00000000000000000"
+vpc_cidr              = "10.0.0.0/16"
+archive_clients_cidr  = "10.0.10.0/24"
+colo_cidr             = "10.50.0.0/24"

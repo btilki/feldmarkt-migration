@@ -1,0 +1,105 @@
+# Builds the storefront stand-in, pushes an immutable image, and opens a digest
+# pull request for dev only. It does not deploy. Prod and stage pins are a
+# reviewed Git change. Argo CD applies Git.
+#
+# Repository variables, not secrets in Git: AWS_ROLE_ARN, ECR_REPOSITORY.
+# The digest job stays off until AWS_ROLE_ARN is set.
+
+name: storefront digest
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/storefront/**"
+      - "charts/storefront/**"
+      - ".github/workflows/storefront-digest.yml"
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unit tests
+        run: docker run --rm -v "$PWD/app/storefront:/src" -w /src maven:3.9-eclipse-temurin-21 mvn -B -ntp verify
+      - name: Spring Boot version matches the chart
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          ns = {"m": "http://maven.apache.org/POM/4.0.0"}
+          root = ET.parse("app/storefront/pom.xml").getroot()
+          version = root.find("m:parent/m:version", ns).text
+          chart = open("charts/storefront/Chart.yaml", encoding="utf-8").read()
+          if f'appVersion: "{version}"' not in chart:
+              raise SystemExit(f"chart appVersion is not {version}")
+          PY
+
+  digest:
+    needs: test
+    if: ${{ vars.AWS_ROLE_ARN != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Image
+        run: docker build -t storefront:ci app/storefront
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: eu-central-1
+      - uses: aws-actions/amazon-ecr-login@v2
+      - name: Push and record digest
+        id: push
+        run: |
+          REPO="${{ vars.ECR_REPOSITORY }}"
+          TAG="ci-${GITHUB_SHA}"
+          docker tag storefront:ci "${REPO}:${TAG}"
+          PUSH_LOG="$(docker push "${REPO}:${TAG}")"
+          DIGEST="$(printf '%s\n' "${PUSH_LOG}" | sed -n 's/.*\(sha256:[0-9a-f]\{64\}\).*/\1/p' | awk 'NR==1{print}')"
+          echo "${DIGEST}" | grep -Eq '^sha256:[0-9a-f]{64}$'
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+      - name: Pin dev only
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+          path = Path("gitops/envs/dev/storefront.yaml")
+          digest = os.environ["DIGEST"]
+          text = path.read_text(encoding="utf-8")
+          updated, count = re.subn(
+              r'digest:\s*"sha256:[0-9a-fA-F]{64}"',
+              f'digest: "{digest}"',
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit("dev digest pin not found")
+          path.write_text(updated, encoding="utf-8")
+          PY
+          if git diff --name-only | grep -E '^gitops/envs/(stage|prod)/'; then
+            echo "CI must not change stage or prod"
+            exit 1
+          fi
+      - name: Open digest pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BRANCH="ci/storefront-digest-${GITHUB_SHA}"
+          git checkout -b "${BRANCH}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add gitops/envs/dev/storefront.yaml
+          git commit -m "ci: pin storefront dev digest"
+          git push origin "${BRANCH}"
+          gh pr create --title "ci: pin storefront dev digest" --body "Digest-only change for dev. This does not deploy."

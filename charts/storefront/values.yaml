@@ -1,0 +1,32 @@
+replicaCount: 1
+
+image:
+  repository: ACCOUNT.dkr.ecr.eu-central-1.amazonaws.com/feldmarkt-storefront
+  # Placeholder pin. CI replaces dev. A reviewed change replaces stage and prod.
+  digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+
+springBootVersion: "3.5.5"
+
+service:
+  port: 8080
+
+database:
+  host: REPLACE_WITH_RDS_ENDPOINT
+  port: 5432
+  name: storefront
+  secretName: storefront-db
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+  limits:
+    memory: 512Mi
+
+ingress:
+  enabled: false
+  className: alb
+  # Must be the group of the load balancer already on the cluster. A new name creates a second load balancer.
+  groupName: REPLACE_WITH_EXISTING_ALB_GROUP
+  host: shop.example.invalid
+  certificateArn: REPLACE_WITH_EXISTING_CERTIFICATE_ARN

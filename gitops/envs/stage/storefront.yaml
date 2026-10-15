@@ -1,0 +1,10 @@
+image:
+  repository: ACCOUNT.dkr.ecr.eu-central-1.amazonaws.com/feldmarkt-storefront
+  digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+springBootVersion: "3.5.5"
+replicaCount: 1
+database:
+  host: REPLACE_WITH_NONPROD_ENDPOINT
+  port: 5432
+  name: storefront
+  secretName: storefront-db-nonprod

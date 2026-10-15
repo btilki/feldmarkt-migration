@@ -1,0 +1,11 @@
+aws_region                = "eu-central-1"
+vpc_id                     = "vpc-00000000000000000"
+private_subnet_ids         = ["subnet-00000000000000001", "subnet-00000000000000002"]
+nonprod_client_security_group_id = "sg-00000000000000001"
+prod_client_security_group_id    = "sg-00000000000000002"
+colo_cidr                  = "10.50.0.0/24"
+postgres_engine_version    = "16"
+database_name              = "storefront"
+schema_name                = "public"
+colo_postgres_host         = "storefront.colo.internal"
+colo_postgres_secret_arn   = "arn:aws:secretsmanager:eu-central-1:000000000000:secret:feldmarkt/colo-postgres"

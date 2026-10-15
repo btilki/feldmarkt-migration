@@ -1,0 +1,17 @@
+image:
+  repository: ACCOUNT.dkr.ecr.eu-central-1.amazonaws.com/feldmarkt-storefront
+  digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+springBootVersion: "3.5.5"
+replicaCount: 2
+database:
+  # prod_endpoint. Sync prod only after the row check and sequence alignment.
+  host: REPLACE_WITH_PROD_ENDPOINT
+  port: 5432
+  name: storefront
+  secretName: storefront-db-prod
+ingress:
+  enabled: true
+  className: alb
+  groupName: REPLACE_WITH_EXISTING_ALB_GROUP
+  host: shop.example.invalid
+  certificateArn: REPLACE_WITH_EXISTING_CERTIFICATE_ARN

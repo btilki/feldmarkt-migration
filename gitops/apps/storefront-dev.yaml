@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: storefront-dev
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/btilki/feldmarkt-migration.git
+      targetRevision: main
+      path: charts/storefront
+      helm:
+        valueFiles:
+          - $repo/gitops/envs/dev/storefront.yaml
+    - repoURL: https://github.com/btilki/feldmarkt-migration.git
+      targetRevision: main
+      ref: repo
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: storefront-dev
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

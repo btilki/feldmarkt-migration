@@ -1,0 +1,6 @@
+apiVersion: v2
+name: storefront
+description: Feldmarkt storefront. One Spring Boot JAR. Digest pin only.
+type: application
+version: 0.1.0
+appVersion: "3.5.5"
