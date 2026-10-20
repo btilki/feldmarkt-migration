@@ -2,7 +2,7 @@
 
 On-premises workload migration to **AWS** (**Amazon Web Services**): rehost one virtual machine, replatform one Spring Boot monolith and its PostgreSQL database onto an existing **EKS** (**Elastic Kubernetes Service**) **GitOps** (**Git operations**) path.
 
-Destination pattern: [boutique-eks-gitops](https://github.com/btilki/boutique-eks-gitops) · Portfolio: [DevOps Engineering Playbook](https://github.com/btilki/devops-engineering-playbook) · Author: [Birol Tilki](https://www.linkedin.com/in/birol-tilki-48731326/)
+Destination pattern: [boutique-eks-gitops](https://github.com/btilki/boutique-eks-gitops) · Author: [Birol Tilki](https://www.linkedin.com/in/birol-tilki-48731326/)
 
 **Status:** blueprint. Wave 1 and wave 2 are encoded so they can be applied later. Nothing in this repository has been applied to a cloud account. This is not an employer system.
 
