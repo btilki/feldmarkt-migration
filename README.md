@@ -1,89 +1,143 @@
 # Feldmarkt migration
 
-On-premises workload migration to **AWS** (**Amazon Web Services**): rehost one virtual machine, replatform one Spring Boot monolith and its PostgreSQL database onto an existing **EKS** (**Elastic Kubernetes Service**) **GitOps** (**Git operations**) path.
+**A controlled on-premises-to-AWS migration blueprint.** Rehost the `archiv` virtual machine, replatform the existing Spring Boot `storefront` application onto an existing Amazon EKS GitOps path, and move PostgreSQL to private Amazon RDS.
 
-Destination pattern: [boutique-eks-gitops](https://github.com/btilki/boutique-eks-gitops) · Author: [Birol Tilki](https://www.linkedin.com/in/birol-tilki-48731326/)
+[Architecture decisions](docs/decisions.md) · [Migration scenario](docs/scenario.md) · [Cutover runbook](docs/cutover.md) · [Implementation guide](docs/implementation.md)
 
-**Status:** blueprint. Wave 1 and wave 2 are encoded so they can be applied later. Nothing in this repository has been applied to a cloud account. This is not an employer system.
+**Status: blueprint only.** The repository contains the plan and implementation shapes for migration waves 1 and 2. Nothing here has been applied to a cloud account. This is not an employer system.
 
-### At a glance
+---
 
-| | |
-|-|-|
-| **Source** | Two Ubuntu virtual machines in a Frankfurt colocation site |
-| **`archiv`** | Rehost to **EC2** (**Elastic Compute Cloud**) with **MGN** (**AWS Application Migration Service**) |
-| **`storefront`** | Replatform the same Spring Boot **JAR** (**Java Archive**) to EKS. **CI** (**Continuous Integration**) opens a digest change. **Argo CD** (**Continuous Delivery**) deploys. |
-| **Database** | Replatform PostgreSQL to private **RDS** (**Amazon Relational Database Service**) with **DMS** (**AWS Database Migration Service**). Same major version, same schema. |
-| **Switch** | **DNS** (**Domain Name System**), Sunday 02:00–06:00 **CET** (**Central European Time**), only after the proofs pass |
-| **After cutover** | Seven days of hypercare. The colo stays on for rollback. |
-| **Start reading** | [Scenario](docs/scenario.md) → [Decisions](docs/decisions.md) → [Cutover](docs/cutover.md) |
+## At a glance
+
+| Area | Current state | Target / migration approach |
+|---|---|---|
+| Source | Two Ubuntu VMs in a Frankfurt colocation site | Temporary site-to-site VPN to the existing AWS VPC |
+| `archiv` | systemd service on port `8443`; 40 GB at `/var/lib/feldmarkt`; two users | Rehost with AWS Application Migration Service (MGN) to a private EC2 instance; Systems Manager access; no public SSH |
+| `storefront` | Spring Boot 3.5.5 JAR on port `8080`; PostgreSQL on the same VM | Keep the monolith and version; containerize the same application and deploy through the existing EKS GitOps path |
+| Database | PostgreSQL on the `storefront` VM | Same-major-version PostgreSQL on private RDS, replicated with AWS DMS |
+| Delivery | Shell script copies the JAR to the VM | GitHub Actions builds and publishes an immutable image, then opens a digest-only PR; Argo CD reconciles Git |
+| Cutover | Production remains in the colo | Sunday 02:00–06:00 CET, only after workload-specific proof checks |
+| Recovery | Colo remains available | Seven days of hypercare with the colo and VPN retained for rollback |
+
+## Architecture
+
+The diagram separates migration services from the destination platform. The VPC, EKS cluster, Argo CD, AWS Load Balancer Controller, and load balancer are existing landing-zone components; this repository does not recreate them.
 
 ```mermaid
 flowchart LR
-  subgraph colo [Frankfurt colo]
-    ArchivVM[archiv VM and disk]
-    ShopVM[storefront JAR and PostgreSQL]
+  subgraph colo["Frankfurt colocation — production until cutover"]
+    archiv["archiv VM<br/>systemd :8443<br/>40 GB data disk"]
+    shop["storefront VM<br/>Spring Boot JAR :8080"]
+    pg[("Colo PostgreSQL")]
+    shop --> pg
   end
 
-  subgraph aws [AWS eu-central-1]
-    EC2[EC2 via MGN]
-    RDS[(RDS PostgreSQL)]
-    EKS[Existing EKS GitOps]
+  vpn["Temporary site-to-site VPN"]
+
+  subgraph aws["AWS eu-central-1"]
+    subgraph migration["Migration services"]
+      mgn["AWS MGN"]
+      dms["AWS DMS"]
+    end
+    ec2["Private EC2<br/>archiv cutover instance"]
+    rdsnp[("Private RDS<br/>non-production data")]
+    rdsprod[("Private RDS<br/>production DMS target")]
+    ecr[("Amazon ECR<br/>immutable image")]
+    subgraph existing["Existing platform — reused"]
+      subgraph eks["Amazon EKS"]
+        dev["dev"]
+        stage["stage"]
+        prod["prod"]
+      end
+      argocd["Argo CD"]
+      alb["Existing load balancer"]
+    end
   end
 
-  ArchivVM -->|wave 1 rehost| EC2
-  ShopVM -->|wave 2 DMS| RDS
-  ShopVM -->|wave 2 digest| EKS
-  EKS --> RDS
+  archiv --> vpn --> mgn --> ec2
+  pg --> vpn --> dms --> rdsprod
+  shop -. "same app, container image" .-> ecr
+  ecr --> dev
+  ecr --> stage
+  ecr --> prod
+  argocd --> dev
+  argocd --> stage
+  argocd --> prod
+  dev --> rdsnp
+  stage --> rdsnp
+  prod --> rdsprod
+  alb --> prod
 ```
 
-## The two workloads
+### Delivery and promotion
 
-| Workload | Today | This wave |
-|----------|--------|-----------|
-| `archiv` | systemd on port 8443, 40 GB disk at `/var/lib/feldmarkt`, two users | MGN cutover instance in a private subnet. Systems Manager. No public **SSH** (**Secure Shell**). |
-| `storefront` | One Spring Boot JAR on port 8080. A shell script copies the JAR. PostgreSQL on the same machine. | Container on the existing EKS path. Database on RDS. Spring Boot version unchanged. |
+1. GitHub Actions builds the `storefront` image, scans it, and pushes it to ECR.
+2. The workflow opens a pull request that changes only `gitops/envs/dev` with the immutable image digest.
+3. Argo CD pulls the Git change and reconciles dev. Stage and prod digest changes are reviewed Git commits.
+4. Production sync is manual during the cutover window, after database proofs and sequence alignment.
+5. CI does **not** run `kubectl` or trigger an Argo CD sync.
 
-A rewrite, a Spring Boot upgrade, and a split into microservices are refused for this wave. The reasons are in [docs/decisions.md](docs/decisions.md).
+Dev and stage use RDS containing non-production data. The production DMS target is reserved for production cutover; the environments do not share that database.
 
-## Waves
+## Migration waves
 
-| Wave | What moves | Where it lives |
-|------|------------|----------------|
-| 0 | Nothing. Scenario, requirements, decisions, architecture, cutover note. | [docs/](docs/) |
-| 1 | `archiv` landing shape. MGN launches the machine. | [terraform/wave1-archiv](terraform/wave1-archiv/) |
-| 2 | `storefront` chart, digest pins, CI that does not deploy, private RDS and a stopped DMS task. | [charts/storefront](charts/storefront/), [gitops/](gitops/), [terraform/wave2-storefront](terraform/wave2-storefront/) |
-| 3 | Colo and **VPN** (**Virtual Private Network**) removed after seven clean days. | Written in the scenario. No code. |
+| Wave | Scope | Repository location |
+|---|---|---|
+| 0 — Define | Scenario, requirements, decisions, architecture, cutover plan | [`docs/`](docs/) |
+| 1 — Rehost | Private EC2 landing shape for the MGN-launched `archiv` instance | [`terraform/wave1-archiv/`](terraform/wave1-archiv/) |
+| 2 — Replatform | Private RDS, stopped DMS task definition, immutable ECR, application stand-in, Helm chart, GitOps pins, digest PR workflow | [`terraform/wave2-storefront/`](terraform/wave2-storefront/), [`app/storefront/`](app/storefront/), [`charts/storefront/`](charts/storefront/), [`gitops/`](gitops/), [`.github/workflows/`](.github/workflows/) |
+| 3 — Decommission | Remove the colo and VPN after seven clean days | Described in the scenario; no automation in this repository |
 
-Before Sunday, production DNS and production writes stay on the colo. Dev and stage rehearse against RDS that is not the DMS target. On Sunday, writes freeze, the copies finish, and DNS changes only after the checks. For the next seven days the new path is live and the colo stays powered on so DNS can point back.
-
-## Read this order
-
-1. [docs/scenario.md](docs/scenario.md) — the story and the recovery points
-2. [docs/requirements.md](docs/requirements.md) — the yes-or-no checks
-3. [docs/decisions.md](docs/decisions.md) — why each path won
-4. [docs/architecture.md](docs/architecture.md) — colo, during the move, after seven days
-5. [docs/cutover.md](docs/cutover.md) — the Sunday template. The lines are blank because this cutover has not been run.
-6. [docs/implementation.md](docs/implementation.md) — tool list and the operator order. Nothing in it has been applied.
-
-## Repository
+## Repository map
 
 ```text
-docs/                         wave 0
-terraform/wave1-archiv/       private EC2 landing shape for MGN
-terraform/wave2-storefront/   private RDS, DMS task created stopped, immutable **ECR** (**Elastic Container Registry**)
-app/storefront/               image stand-in: GET /health and SELECT 1
-charts/storefront/            digest-pinned Helm chart
-gitops/                       dev, stage, and prod pins; prod Argo CD sync is manual
-.github/workflows/            digest pull request for dev only
+feldmarkt-migration/
+├── ansible/                 # Ansible automation and playbooks
+├── app/
+│   └── storefront/           # Small application stand-in: /health and SELECT 1
+├── charts/
+│   └── storefront/           # Digest-pinned Helm chart
+├── docs/                     # Scenario, requirements, ADRs, architecture, runbooks
+├── gitops/
+│   ├── envs/dev/              # Dev image and configuration pins
+│   ├── envs/stage/            # Stage image and configuration pins
+│   └── envs/prod/             # Prod image and configuration pins
+├── terraform/
+│   ├── wave1-archiv/          # Private EC2 landing shape for MGN
+│   └── wave2-storefront/      # Private RDS, DMS task shape, immutable ECR
+└── .github/
+    └── workflows/             # Build, publish, and open digest-only PR
 ```
 
-The stand-in is not the Feldmarkt shop. The shop is the JAR already running in the colo. The stand-in exists so the pipeline has an image with the same health contract. Spring Boot **3.5.5** is the version this blueprint moves. It is not an upgrade target.
+The application under `app/storefront` is a **pipeline stand-in**, not the Feldmarkt shop. It provides the health contract and a `SELECT 1` database check so the delivery path can be exercised. The real shop remains the existing Spring Boot 3.5.5 monolith; this migration does not rewrite it, split it into microservices, or upgrade Spring Boot.
 
-CI updates only `gitops/envs/dev`. It does not run `kubectl` or an Argo CD sync. Stage and prod digests change by a reviewed Git commit. On Sunday the prod Application is synced after the row check and the sequence alignment. `GET /health` is taken from those pods. Public DNS moves only after that 200.
+## Cutover and rollback
 
-## Outside this repository
+The Sunday window is 02:00–06:00 CET. Each workload has an independent go/no-go decision:
 
-A second database, a different database engine, a schema rewrite, a new **VPC** (**Virtual Private Cloud**) or EKS cluster, a new progressive-delivery or observability stack, VMware tooling, Ansible for the estate, a second region, and code that turns the colo off.
+- **`archiv`:** final MGN sync, matching data-volume checksum, successful export, and volume snapshot must all be recorded before private DNS changes.
+- **`storefront`:** freeze writes, wait for DMS lag zero, compare row counts, align sequences, manually sync prod, and verify `GET /health` returns 200 from pods using production RDS before public DNS changes.
+- **No-go:** a failed proof leaves that workload's DNS on the colo. A no-go for one workload does not reverse a go already recorded for the other.
+- **Hypercare:** retain the colo machines, colo PostgreSQL, and VPN for seven days. Wave 3 decommissioning is outside the code in this repository.
 
-The VPC, the cluster, and Argo CD are the existing landing zone. This repository does not build them again.
+## Security boundaries and explicit non-goals
+
+- `archiv` runs in a private subnet and is reached through Systems Manager; no public SSH ingress.
+- RDS is private. Database access is restricted to the appropriate pod security groups and DMS.
+- Secrets are referenced through Secrets Manager and the existing External Secrets integration; credentials are not committed to Git.
+- The existing VPC, EKS cluster, Argo CD, load balancer, and observability platform are reused.
+- No second database engine, schema rewrite, Spring Boot upgrade, microservice split, new VPC or EKS cluster, second region, or automated colo shutdown is part of this blueprint.
+
+## Suggested reading order
+
+1. [`docs/scenario.md`](docs/scenario.md) — migration story and recovery points
+2. [`docs/requirements.md`](docs/requirements.md) — measurable acceptance and proof checks
+3. [`docs/decisions.md`](docs/decisions.md) — architecture decision records
+4. [`docs/architecture.md`](docs/architecture.md) — current, transition, cutover, and hypercare states
+5. [`docs/cutover.md`](docs/cutover.md) — operator checklist and blank evidence fields
+6. [`docs/implementation.md`](docs/implementation.md) — tools, prerequisites, and execution order
+
+---
+
+**Key takeaway:** this repository demonstrates a controlled migration from Frankfurt to AWS with explicit workload boundaries, immutable artifact promotion, GitOps reconciliation, private data services, measurable cutover gates, and a seven-day rollback window.
