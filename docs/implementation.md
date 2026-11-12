@@ -1,6 +1,6 @@
 # Feldmarkt implementation guide
 
-**Status:** blueprint. These are the tools and the order an operator would use. Nothing in this repository has been applied to a cloud account. This is not an employer system.
+> Status: Blueprint. These are the tools and the order an operator would use. Nothing in this repository has been applied to a cloud account. This is not an employer system.
 
 Read [scenario.md](scenario.md), [decisions.md](decisions.md), and [cutover.md](cutover.md) before the first command. This guide says which tool runs each step. The cutover note is where the Sunday results are written.
 
@@ -8,11 +8,12 @@ Read [scenario.md](scenario.md), [decisions.md](decisions.md), and [cutover.md](
 
 | Tool | Pin | Does | Does not |
 |------|-----|------|----------|
-| Terraform | >= 1.9, **AWS** (**Amazon Web Services**) provider ~> 6.0 | Apply [wave 1](../terraform/wave1-archiv/) and [wave 2](../terraform/wave2-storefront/) | Launch the `archiv` machine. Deploy `storefront`. |
-| AWS **CLI** (**command line interface**) | v2 | **MGN** (**AWS Application Migration Service**) settings, **DMS** (**AWS Database Migration Service**) start and stop, the volume snapshot, Systems Manager, **DNS** (**Domain Name System**) **TTL** (**Time to Live**) | Deploy to the cluster |
+| Terraform | >= 1.9, AWS provider ~> 6.0 | Apply [wave 1](../terraform/wave1-archiv/) and [wave 2](../terraform/wave2-storefront/) | Launch the `archiv` machine. Deploy `storefront`. |
+| Ansible | >= 2.15 | Colo inventory, prep asserts, Sunday freeze, proof helpers, rollback checks ([ansible/](../ansible/)) | Rebuild `archiv`. Replace MGN or DMS. Day-2 estate management |
+| AWS CLI | v2 | MGN settings, DMS start and stop, the volume snapshot, Systems Manager, DNS TTL | Deploy to the cluster |
 | Session Manager plugin | current | Operator shell on `archiv`. After wave 3, the two users reach port 8443 through it | Replace private DNS during the seven days |
-| Helm | 3 | Render the chart and read the manifest | Apply the chart. **Argo CD** (**Continuous Delivery**) is the deployer |
-| Argo CD CLI | v2, already on the cluster | Manual prod sync. Scale prod to 0 on rollback | Run inside **CI** (**Continuous Integration**) |
+| Helm | 3 | Render the chart and read the manifest | Apply the chart. Argo CD is the deployer |
+| Argo CD CLI | v2, already on the cluster | Manual prod sync. Scale prod to 0 on rollback | Run inside CI |
 | Docker | current | Build the stand-in image. CI does this | Deploy |
 | Git | current | Digest pins. CI opens a pull request for dev only | |
 | psql | client major version = colo PostgreSQL | Schema-only load, row check, sequence alignment | |
@@ -24,17 +25,31 @@ Read [scenario.md](scenario.md), [decisions.md](decisions.md), and [cutover.md](
 
 This repository does not create these. The steps below fail closed when one is missing.
 
-- **VPC** (**Virtual Private Cloud**) and at least two private subnets in `eu-central-1`
-- A private path for **TCP** (**Transmission Control Protocol**) 443 from those subnets to the MGN and DMS **APIs** (**application programming interfaces**)
-- **EKS** (**Elastic Kubernetes Service**), Argo CD, the AWS Load Balancer Controller, and one existing **ALB** (**Application Load Balancer**) group name
+- VPC and at least two private subnets in `eu-central-1`
+- A private path for TCP 443 from those subnets to the MGN and DMS APIs
+- EKS, Argo CD, the AWS Load Balancer Controller, and one existing ALB group name
 - The certificate on that load balancer
 - ClusterSecretStore named `aws-secrets`
 - Two different pod security groups: one for dev and stage, one for prod. Neither is the shared node group
-- The Frankfurt colo, with a public **IP** (**Internet Protocol**) address for the customer gateway
+- The Frankfurt colo, with a public IP address for the customer gateway
+
+## 0. Inventory the colo with Ansible
+
+Tool: Ansible, from [ansible/](../ansible/). Decision: [D8](decisions.md).
+
+```bash
+cd ansible
+cp inventory/hosts.example.yml inventory/hosts.yml
+# fill ansible_host values; optional vault for the Postgres password
+ansible-playbook playbooks/01-inventory.yml
+ansible-playbook playbooks/02-colo-prep.yml
+```
+
+`01-inventory.yml` records INV-1..INV-3 evidence. `02-colo-prep.yml` asserts `wal_level=logical`, the DMS role, and TLS. Neither playbook rewrites DNS zones.
 
 ## 1. Fill the placeholders
 
-Do not commit live passwords or account secrets. Endpoints and secret **ARNs** (**Amazon Resource Names**) do not exist until wave 2 has been applied, so this step is split.
+Do not commit live passwords or account secrets. Endpoints and secret ARNs do not exist until wave 2 has been applied, so this step is split.
 
 Before any apply:
 
@@ -47,7 +62,7 @@ Before any apply:
 | `https://github.com/btilki/feldmarkt-migration.git` | The three Argo CD Applications, if the repository name differs |
 | Terraform variables | `terraform.tfvars` copied from each `terraform.tfvars.example` |
 
-`archive_clients_cidr` during the move is the colo **CIDR** (**Classless Inter-Domain Routing**) range, because the two users arrive over the **VPN** (**Virtual Private Network**). It cannot be `0.0.0.0/0`.
+`archive_clients_cidr` during the move is the colo CIDR range, because the two users arrive over the VPN. It cannot be `0.0.0.0/0`.
 
 After wave 2 apply, from the Terraform outputs:
 
@@ -76,7 +91,7 @@ terraform plan
 terraform apply
 ```
 
-This creates the private security groups, the Systems Manager instance profile, and a launch template with no **AMI** (**Amazon Machine Image**). It does not start an instance.
+This creates the private security groups, the Systems Manager instance profile, and a launch template with no AMI. It does not start an instance.
 
 Copy `mgn_replication_settings` into the MGN replication template in the account: private subnet, the replication security group, `create_public_ip` false, `PRIVATE_IP` routing. MGN creates its own launch template per source server. Copy these fields into that template. Do not tell MGN to launch our template id.
 
@@ -108,7 +123,7 @@ terraform plan
 terraform apply
 ```
 
-This creates nonprod **RDS** (**Amazon Relational Database Service**), prod RDS, a stopped DMS task, and the immutable **ECR** (**Elastic Container Registry**) repository. Prod RDS accepts PostgreSQL only from the prod pod security group and from DMS. Nonprod accepts it only from the dev and stage pod security group.
+This creates nonprod RDS, prod RDS, a stopped DMS task, and the immutable ECR repository. Prod RDS accepts PostgreSQL only from the prod pod security group and from DMS. Nonprod accepts it only from the dev and stage pod security group.
 
 Write the four outputs from the step 1 table into Git and into `ECR_REPOSITORY`. Commit the Git values. Do not commit a password.
 
@@ -138,7 +153,7 @@ Record the task id in the cutover note (TGT-7). Dev and stage never use this RDS
 
 Tool: GitHub Actions for the image, `kubectl` once to register the manifests, Argo CD for the deploy.
 
-The digest job stays off until both repository variables are set. `ECR_REPOSITORY` is the wave 2 output `ecr_repository_url`. `AWS_ROLE_ARN` is an existing GitHub **OIDC** (**OpenID Connect**) role that can push to that repository. This repository does not create that role.
+The digest job stays off until both repository variables are set. `ECR_REPOSITORY` is the wave 2 output `ecr_repository_url`. `AWS_ROLE_ARN` is an existing GitHub OIDC role that can push to that repository. This repository does not create that role.
 
 ```bash
 gh variable set AWS_ROLE_ARN --body "$AWS_ROLE_ARN"
@@ -176,17 +191,31 @@ curl -fsS http://127.0.0.1:8080/health
 
 Prod stays unsynced. Its Ingress is in Git and joins the existing ALB group only when that Application is synced.
 
-## 8. Sunday, before 02:00 **CET** (**Central European Time**)
+## 8. Sunday, before 02:00 CET
 
-Tool: AWS CLI for DNS. The cutover note is the record.
+Tool: AWS CLI for DNS. Ansible preflight. The cutover note is the record.
 
-Lower both DNS records to TTL 60. Confirm the MGN test, the running DMS task, the schema-only load, and the dev and stage health checks. The colo machines stay powered on.
+Lower both DNS records to TTL 60. Fill `mgn_source_server_id`, `dms_replication_task_arn`, and `prod_rds_endpoint` in [ansible/group_vars/all/main.yml](../ansible/group_vars/all/main.yml), then:
+
+```bash
+cd ansible
+ansible-playbook playbooks/03-preflight.yml
+```
+
+Confirm the schema-only load and the dev and stage health checks. The colo machines stay powered on.
 
 ## 9. Sunday window
 
 Fill [cutover.md](cutover.md) while you do this. A failed proof stops that workload and leaves its DNS on the colo.
 
-**Freeze, at 02:00 CET.** On the colo, stop the `storefront` systemd unit, set the database read-only, and stop the `archiv` systemd unit.
+Freeze, at 02:00 CET. Ansible stops the units and sets the database read-only. Requires an explicit confirm:
+
+```bash
+cd ansible
+ansible-playbook playbooks/04-cutover-freeze.yml -e confirm_freeze=true
+```
+
+Equivalent SQL if run by hand:
 
 ```sql
 ALTER DATABASE storefront SET default_transaction_read_only = on;
@@ -198,10 +227,13 @@ ALTER DATABASE storefront SET default_transaction_read_only = on;
 aws mgn start-cutover --source-server-ids "$SOURCE_SERVER_ID"
 ```
 
-Wait until the final sync has finished and the cutover instance is running. Checksum the colo disk and the disk on that cutover instance:
+Wait until the final sync has finished and the cutover instance is running. Collect colo proof helpers, then validate the cutover instance (check-only) before private DNS:
 
 ```bash
-tar -C /var/lib/feldmarkt -cf - . | sha256sum
+cd ansible
+ansible-playbook playbooks/05-cutover-proofs.yml
+# set archiv_cutover ansible_host to the cutover private IP in inventory/hosts.yml
+ansible-playbook playbooks/07-validate-archiv-cutover.yml
 ```
 
 Run one archive export on the cutover instance. Snapshot that instance's data volume:
@@ -257,7 +289,12 @@ aws dms stop-replication-task --replication-task-arn "$TASK_ARN"
 
 ## 10. Rollback of a go
 
-Same tools, in this order. Times start when the decision is made.
+Same tools, in this order. Times start when the decision is made. Ansible only verifies the colo can still take traffic; it does not flip DNS or stop DMS.
+
+```bash
+cd ansible
+ansible-playbook playbooks/06-rollback-checks.yml -e start_services=true
+```
 
 `archiv`, 30 minutes: point private DNS back at the colo machine, stop the cutover instance, keep the snapshot.
 

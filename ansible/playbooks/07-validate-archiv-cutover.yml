@@ -1,0 +1,63 @@
+---
+# After MGN has launched the cutover instance and before private DNS go (PRF-1, PRF-2 support).
+# Check-only. Does not install packages, change users, rewrite SSH, or flip DNS.
+# ansible-playbook playbooks/07-validate-archiv-cutover.yml
+
+- name: Validate archiv on the cutover instance
+  hosts: archiv_cutover
+  gather_facts: true
+  tasks:
+    - name: Reject unfilled cutover host placeholder
+      ansible.builtin.assert:
+        that:
+          - ansible_host is defined
+          - not (ansible_host | string).startswith('REPLACE_WITH_')
+        fail_msg: >-
+          Fill ansible_host for archiv_cutover in inventory/hosts.yml with the
+          private IP of the MGN cutover instance.
+
+    - name: Assert data disk path exists on cutover
+      ansible.builtin.stat:
+        path: "{{ archiv_data_path }}"
+      register: cutover_disk
+
+    - name: Fail when /var/lib/feldmarkt is missing on cutover
+      ansible.builtin.assert:
+        that:
+          - cutover_disk.stat.exists
+          - cutover_disk.stat.isdir
+        fail_msg: "Cutover instance is missing {{ archiv_data_path }}"
+
+    - name: Record archiv systemd unit on cutover
+      ansible.builtin.command:
+        cmd: systemctl show -p LoadState -p ActiveState -p FragmentPath {{ archiv_service }}
+      register: cutover_unit
+      changed_when: false
+
+    - name: Assert archiv unit is loaded on cutover
+      ansible.builtin.assert:
+        that:
+          - "'LoadState=loaded' in cutover_unit.stdout"
+        fail_msg: "Cutover instance does not have systemd unit {{ archiv_service }} loaded"
+
+    - name: Assert archiv port listens on cutover
+      ansible.builtin.wait_for:
+        port: "{{ archiv_port }}"
+        host: 127.0.0.1
+        timeout: 15
+
+    - name: Checksum /var/lib/feldmarkt on cutover (PRF-1 half)
+      ansible.builtin.shell: |
+        set -euo pipefail
+        tar -C {{ archiv_data_path }} -cf - . | sha256sum
+      register: cutover_archiv_checksum
+      changed_when: false
+
+    - name: Print cutover evidence for the cutover note
+      ansible.builtin.debug:
+        msg:
+          - "hostname={{ ansible_hostname }}"
+          - "unit={{ cutover_unit.stdout_lines }}"
+          - "port={{ archiv_port }} listening"
+          - "cutover_checksum={{ cutover_archiv_checksum.stdout }}"
+          - "Compare to colo checksum from 05-cutover-proofs.yml. Do not change DNS here."

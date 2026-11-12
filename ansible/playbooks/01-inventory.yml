@@ -1,0 +1,94 @@
+---
+# INV-1, INV-2, INV-3 evidence. Read-only. Does not change the colo.
+# ansible-playbook playbooks/01-inventory.yml
+
+- name: Inventory archiv (INV-1)
+  hosts: archiv
+  gather_facts: true
+  tasks:
+    - name: Assert data disk path exists
+      ansible.builtin.stat:
+        path: "{{ archiv_data_path }}"
+      register: archiv_disk
+
+    - name: Fail when /var/lib/feldmarkt is missing
+      ansible.builtin.assert:
+        that:
+          - archiv_disk.stat.exists
+          - archiv_disk.stat.isdir
+        fail_msg: "INV-1: {{ archiv_data_path }} is missing on {{ inventory_hostname }}"
+
+    - name: Record archiv systemd unit
+      ansible.builtin.command:
+        cmd: systemctl show -p LoadState -p ActiveState -p FragmentPath {{ archiv_service }}
+      register: archiv_unit
+      changed_when: false
+
+    - name: Assert archiv unit is loaded
+      ansible.builtin.assert:
+        that:
+          - "'LoadState=loaded' in archiv_unit.stdout"
+        fail_msg: "INV-1: systemd unit {{ archiv_service }} is not loaded"
+
+    - name: Listen check on archiv port
+      ansible.builtin.wait_for:
+        port: "{{ archiv_port }}"
+        host: 127.0.0.1
+        timeout: 5
+      register: archiv_listen
+
+    - name: Print INV-1 evidence
+      ansible.builtin.debug:
+        msg:
+          - "hostname={{ ansible_hostname }}"
+          - "os={{ ansible_distribution }} {{ ansible_distribution_version }}"
+          - "port={{ archiv_port }}"
+          - "disk_path={{ archiv_data_path }}"
+          - "unit={{ archiv_unit.stdout_lines }}"
+
+- name: Inventory storefront (INV-2, INV-3)
+  hosts: storefront
+  gather_facts: true
+  tasks:
+    - name: Record storefront systemd unit
+      ansible.builtin.command:
+        cmd: systemctl show -p LoadState -p ActiveState -p FragmentPath {{ storefront_service }}
+      register: storefront_unit
+      changed_when: false
+
+    - name: Assert storefront unit is loaded
+      ansible.builtin.assert:
+        that:
+          - "'LoadState=loaded' in storefront_unit.stdout"
+        fail_msg: "INV-2: systemd unit {{ storefront_service }} is not loaded"
+
+    - name: Listen check on storefront port
+      ansible.builtin.wait_for:
+        port: "{{ storefront_port }}"
+        host: 127.0.0.1
+        timeout: 5
+
+    - name: Listen check on PostgreSQL port
+      ansible.builtin.wait_for:
+        port: "{{ storefront_db_port }}"
+        host: "{{ storefront_db_host }}"
+        timeout: 5
+
+    - name: PostgreSQL major version
+      ansible.builtin.shell: |
+        set -euo pipefail
+        psql -h {{ storefront_db_host }} -p {{ storefront_db_port }} -U {{ storefront_db_user }} -d {{ storefront_db_name }} -Atc "SHOW server_version_num;"
+      register: pg_version
+      changed_when: false
+      environment:
+        PGPASSWORD: "{{ storefront_db_password | default('') }}"
+
+    - name: Print INV-2 and INV-3 evidence
+      ansible.builtin.debug:
+        msg:
+          - "hostname={{ ansible_hostname }}"
+          - "os={{ ansible_distribution }} {{ ansible_distribution_version }}"
+          - "app_port={{ storefront_port }}"
+          - "unit={{ storefront_unit.stdout_lines }}"
+          - "postgres_version_num={{ pg_version.stdout }}"
+          - "database={{ storefront_db_name }}"

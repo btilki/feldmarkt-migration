@@ -1,30 +1,33 @@
 # Feldmarkt cutover note
 
-**Status:** blueprint template. The operator fills the blank lines during a real window. Nothing here has been applied to a cloud account. This is not an employer system.
+> Status: Blueprint template. The operator fills the blank lines during a real window. Nothing here has been applied to a cloud account. This is not an employer system.
 
-Sunday 02:00–06:00 **CET** (**Central European Time**). **DNS** (**Domain Name System**) is the switch for callers. The database writer switches before public DNS for `storefront`. A failed proof stops that workload and leaves its DNS on the Frankfurt colo (CUT-5).
+Sunday 02:00–06:00 CET. DNS is the switch for callers. The database writer switches before public DNS for `storefront`. A failed proof stops that workload and leaves its DNS on the Frankfurt colo (CUT-5).
 
-Decisions: [D6](decisions.md). Order: [architecture §3](architecture.md).
+Decisions: [D6](decisions.md), [D8](decisions.md). Order: [architecture §3](architecture.md). Ansible runbooks: [ansible/README.md](../ansible/README.md).
 
 ## Before the window
 
-Record these before Sunday 02:00 CET. A blank line means the window does not start.
+Record these before Sunday 02:00 CET. A blank line means the window does not start. Run `ansible-playbook playbooks/02-colo-prep.yml` and `playbooks/03-preflight.yml` from [ansible/](../ansible/) before filling the AWS and colo rows.
 
 | Check | Record |
 |-------|--------|
-| DNS **TTL** (**Time to Live**) for the private `archiv` record and the public `storefront` record is 60 seconds (CUT-1) | Changed at: |
-| **MGN** (**AWS Application Migration Service**) test instance booted and served port 8443 (PRF-3) | Date: |
-| **DMS** (**AWS Database Migration Service**) task is running over the **VPN** (**Virtual Private Network**) into the private production **RDS** (**Amazon Relational Database Service**) (TGT-7) | Task: |
+| DNS TTL for the private `archiv` record and the public `storefront` record is 60 seconds (CUT-1) | Changed at: |
+| MGN test instance booted and served port 8443 (PRF-3) | Date: |
+| DMS task is running over the VPN into the private production RDS (TGT-7) | Task: |
 | Schema-only copy is already on prod RDS: tables, indexes, foreign keys, defaults, and sequences. DMS table preparation is `DO_NOTHING` | Applied at: |
 | `storefront` dev `GET /health` returned 200 on its digest, against non-production RDS (PRF-4) | Digest: |
 | `storefront` stage `GET /health` returned 200 on its digest, against non-production RDS (PRF-4) | Digest: |
 | Colo virtual machines are powered on | Confirmed at: |
+| Ansible `03-preflight.yml` passed | At: |
 
 Dev and stage do not use the RDS instance that receives the production DMS copy.
 
 ## Sunday, in order
 
 ### 1. Freeze
+
+Use `ansible-playbook playbooks/04-cutover-freeze.yml -e confirm_freeze=true` from [ansible/](../ansible/), or stop the units by hand. Record both times.
 
 | Event | Time |
 |-------|------|
@@ -38,8 +41,8 @@ Both times must fall inside 02:00–06:00 CET (CUT-3, CUT-4).
 | Event | Record |
 |-------|--------|
 | MGN final sync finished | |
-| Checksum of `/var/lib/feldmarkt` on the colo disk at freeze | |
-| Checksum of `/var/lib/feldmarkt` on the cutover instance | |
+| Checksum of `/var/lib/feldmarkt` on the colo disk at freeze (`05-cutover-proofs.yml` helps) | |
+| Checksum of `/var/lib/feldmarkt` on the cutover instance (`07-validate-archiv-cutover.yml` helps) | |
 | Equal (PRF-1) | yes / no |
 | One archive export on the cutover instance | success / fail, at |
 | Snapshot of the cutover data volume, taken before DNS (CUT-6) | Snapshot id: |
@@ -48,7 +51,7 @@ Both times must fall inside 02:00–06:00 CET (CUT-3, CUT-4).
 
 ```text
 GO archiv  time:
-private DNS target: **EC2** (**Elastic Compute Cloud**) cutover instance
+private DNS target: EC2 cutover instance
 previous target remains: colo archiv
 ```
 
@@ -98,7 +101,7 @@ The two workloads are separate. A no-go for one does not undo a go already recor
 
 ## Rollback
 
-Times start when the rollback decision is made. The colo machines stay powered on.
+Times start when the rollback decision is made. The colo machines stay powered on. `ansible-playbook playbooks/06-rollback-checks.yml -e start_services=true` verifies the colo can accept traffic again; it does not flip DNS or stop DMS.
 
 **`archiv`, 30 minutes (RBK-2).**
 

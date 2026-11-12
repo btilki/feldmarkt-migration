@@ -1,0 +1,88 @@
+---
+# Before Sunday 02:00 CET. Assert MGN test evidence vars and DMS task state.
+# Does not start MGN cutover, does not sync Argo CD.
+# ansible-playbook playbooks/03-preflight.yml
+
+- name: Preflight AWS and colo readiness
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    placeholder_prefix: REPLACE_WITH_
+  tasks:
+    - name: Reject unfilled AWS placeholders
+      ansible.builtin.assert:
+        that:
+          - not (mgn_source_server_id | string).startswith(placeholder_prefix)
+          - not (dms_replication_task_arn | string).startswith(placeholder_prefix)
+          - not (prod_rds_endpoint | string).startswith(placeholder_prefix)
+        fail_msg: >-
+          Fill mgn_source_server_id, dms_replication_task_arn, and prod_rds_endpoint
+          in group_vars after wave 1 and wave 2 apply.
+
+    - name: Describe MGN source server
+      ansible.builtin.command:
+        argv:
+          - aws
+          - mgn
+          - describe-source-servers
+          - --region
+          - "{{ aws_region }}"
+          - --filters
+          - "Name=source-server-ids,Values={{ mgn_source_server_id }}"
+          - --output
+          - json
+      register: mgn_source
+      changed_when: false
+
+    - name: Parse MGN source JSON
+      ansible.builtin.set_fact:
+        mgn_items: "{{ (mgn_source.stdout | from_json).items | default([]) }}"
+
+    - name: Assert MGN source exists
+      ansible.builtin.assert:
+        that:
+          - mgn_items | length == 1
+        fail_msg: "PRF-3 prerequisite: MGN source server {{ mgn_source_server_id }} not found"
+
+    - name: Describe DMS replication task
+      ansible.builtin.command:
+        argv:
+          - aws
+          - dms
+          - describe-replication-tasks
+          - --region
+          - "{{ aws_region }}"
+          - --filters
+          - "Name=replication-task-arn,Values={{ dms_replication_task_arn }}"
+          - --output
+          - json
+      register: dms_task
+      changed_when: false
+
+    - name: Parse DMS task JSON
+      ansible.builtin.set_fact:
+        dms_tasks: "{{ (dms_task.stdout | from_json).ReplicationTasks | default([]) }}"
+
+    - name: Assert DMS task is running (TGT-7)
+      ansible.builtin.assert:
+        that:
+          - dms_tasks | length == 1
+          - dms_tasks[0].Status == "running"
+        fail_msg: >-
+          TGT-7: DMS task must be running before Sunday.
+          Status={{ dms_tasks[0].Status | default('missing') }}
+
+    - name: Remind schema-only copy
+      ansible.builtin.debug:
+        msg: >-
+          Confirm schema-only copy (tables, indexes, FKs, defaults, sequences)
+          is already on {{ prod_rds_endpoint }} and DMS TargetTablePrepMode is DO_NOTHING.
+          Record Applied at: in docs/cutover.md.
+
+- name: Colo machines still powered
+  hosts: colo
+  gather_facts: true
+  tasks:
+    - name: Ping colo hosts
+      ansible.builtin.ping:

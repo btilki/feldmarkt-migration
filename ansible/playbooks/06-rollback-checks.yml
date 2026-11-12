@@ -1,0 +1,99 @@
+---
+# Rollback readiness (RBK-2, RBK-3 support). Verifies colo can still accept traffic.
+# Does not flip DNS. Does not stop DMS or scale Argo CD (those stay AWS CLI / Argo CD).
+# Optional tag start_services=true starts the colo units after a rollback decision.
+# ansible-playbook playbooks/06-rollback-checks.yml
+# ansible-playbook playbooks/06-rollback-checks.yml -e start_services=true
+
+- name: Colo still reachable for rollback
+  hosts: colo
+  gather_facts: true
+  tasks:
+    - name: Ping colo
+      ansible.builtin.ping:
+
+- name: Archiv rollback checks
+  hosts: archiv
+  gather_facts: false
+  vars:
+    start_services: false
+  tasks:
+    - name: Start archiv when requested
+      ansible.builtin.systemd:
+        name: "{{ archiv_service }}"
+        state: started
+      become: true
+      when: start_services | bool
+
+    - name: Archiv unit state
+      ansible.builtin.command:
+        cmd: systemctl is-active {{ archiv_service }}
+      register: archiv_active
+      changed_when: false
+      failed_when: false
+
+    - name: Assert archiv can listen when started
+      ansible.builtin.wait_for:
+        port: "{{ archiv_port }}"
+        host: 127.0.0.1
+        timeout: 15
+      when: start_services | bool
+
+    - name: Print archiv rollback evidence
+      ansible.builtin.debug:
+        msg: >-
+          RBK-2: colo archiv active={{ archiv_active.stdout }}.
+          Point private DNS back at this host; stop the cutover EC2 outside this playbook.
+
+- name: Storefront rollback checks
+  hosts: storefront
+  gather_facts: false
+  vars:
+    start_services: false
+  tasks:
+    - name: Clear database read-only when starting services
+      ansible.builtin.shell: |
+        set -euo pipefail
+        psql -h {{ storefront_db_host }} -p {{ storefront_db_port }} -U {{ storefront_db_user }} -d postgres -v ON_ERROR_STOP=1 -c \
+          "ALTER DATABASE {{ storefront_db_name }} SET default_transaction_read_only = off;"
+      environment:
+        PGPASSWORD: "{{ storefront_db_password | default('') }}"
+      when: start_services | bool
+
+    - name: Start storefront when requested
+      ansible.builtin.systemd:
+        name: "{{ storefront_service }}"
+        state: started
+      become: true
+      when: start_services | bool
+
+    - name: Storefront unit state
+      ansible.builtin.command:
+        cmd: systemctl is-active {{ storefront_service }}
+      register: storefront_active
+      changed_when: false
+      failed_when: false
+
+    - name: PostgreSQL accepting connections
+      ansible.builtin.wait_for:
+        port: "{{ storefront_db_port }}"
+        host: "{{ storefront_db_host }}"
+        timeout: 10
+
+    - name: Print storefront rollback evidence
+      ansible.builtin.debug:
+        msg:
+          - "RBK-3 order outside Ansible: scale prod to 0, stop DMS, DNS back, revert digest pin."
+          - "This playbook only verifies colo storefront active={{ storefront_active.stdout }}."
+          - "RBK-4: rows written to RDS after the go line are not copied back."
+
+- name: DNS flip stays manual
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Remind operator
+      ansible.builtin.debug:
+        msg: >-
+          This playbook does not change {{ archiv_private_dns_name }} or
+          {{ storefront_public_dns_name }}. Write the rollback times in docs/cutover.md.

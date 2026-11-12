@@ -1,0 +1,56 @@
+---
+# Sunday freeze (CUT-3, CUT-4). Stops writers on the colo.
+# Run only inside the cutover window after the operator fills docs/cutover.md freeze lines.
+# ansible-playbook playbooks/04-cutover-freeze.yml
+
+- name: Confirm the operator intends to freeze
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    confirm_freeze: false
+  tasks:
+    - name: Require confirm_freeze=true
+      ansible.builtin.assert:
+        that:
+          - confirm_freeze | bool
+        fail_msg: >-
+          Refusing freeze. Re-run with -e confirm_freeze=true after Sunday
+          {{ feldmarkt_window_start }} {{ feldmarkt_window_tz }} and after writing
+          the freeze start times in docs/cutover.md.
+
+- name: Freeze storefront writes
+  hosts: storefront
+  gather_facts: false
+  tasks:
+    - name: Stop storefront systemd unit
+      ansible.builtin.systemd:
+        name: "{{ storefront_service }}"
+        state: stopped
+      become: true
+
+    - name: Set colo database read-only
+      ansible.builtin.shell: |
+        set -euo pipefail
+        psql -h {{ storefront_db_host }} -p {{ storefront_db_port }} -U {{ storefront_db_user }} -d postgres -v ON_ERROR_STOP=1 -c \
+          "ALTER DATABASE {{ storefront_db_name }} SET default_transaction_read_only = on;"
+      environment:
+        PGPASSWORD: "{{ storefront_db_password | default('') }}"
+
+    - name: Record storefront freeze
+      ansible.builtin.debug:
+        msg: "CUT-4: {{ storefront_service }} stopped; {{ storefront_db_name }} default_transaction_read_only=on"
+
+- name: Freeze archiv writes
+  hosts: archiv
+  gather_facts: false
+  tasks:
+    - name: Stop archiv systemd unit
+      ansible.builtin.systemd:
+        name: "{{ archiv_service }}"
+        state: stopped
+      become: true
+
+    - name: Record archiv freeze
+      ansible.builtin.debug:
+        msg: "CUT-3: {{ archiv_service }} stopped; proceed to MGN final sync outside Ansible"

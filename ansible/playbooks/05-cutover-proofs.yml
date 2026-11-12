@@ -1,0 +1,95 @@
+---
+# Cutover proofs helpers (PRF-1, PRF-5). Does not change DNS, does not sync Argo CD,
+# does not start MGN cutover. Health on EKS stays kubectl port-forward (PRF-4).
+# ansible-playbook playbooks/05-cutover-proofs.yml
+
+- name: Archiv disk checksum on colo (PRF-1 half)
+  hosts: archiv
+  gather_facts: false
+  tasks:
+    - name: Checksum /var/lib/feldmarkt on colo
+      ansible.builtin.shell: |
+        set -euo pipefail
+        tar -C {{ archiv_data_path }} -cf - . | sha256sum
+      register: colo_archiv_checksum
+      changed_when: false
+
+    - name: Print colo checksum for cutover note
+      ansible.builtin.debug:
+        msg: "colo_checksum={{ colo_archiv_checksum.stdout }} — compare to the cutover EC2 checksum (PRF-1)"
+
+- name: Storefront row-check builder on colo (PRF-5)
+  hosts: storefront
+  gather_facts: false
+  tasks:
+    - name: Build row-check SQL
+      ansible.builtin.shell: |
+        set -euo pipefail
+        psql -h {{ storefront_db_host }} -p {{ storefront_db_port }} -U {{ storefront_db_user }} -d {{ storefront_db_name }} -Atc "
+        SELECT string_agg(
+          format(
+            'SELECT %L AS table_name, count(*)::bigint AS rows FROM %I.%I',
+            c.relname, n.nspname, c.relname
+          ),
+          E'\nUNION ALL\n' ORDER BY c.relname
+        )
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = '{{ storefront_db_schema }}' AND c.relkind = 'r';
+        "
+      register: row_check_sql
+      changed_when: false
+      environment:
+        PGPASSWORD: "{{ storefront_db_password | default('') }}"
+
+    - name: Run row check on colo
+      ansible.builtin.shell: |
+        set -euo pipefail
+        psql -h {{ storefront_db_host }} -p {{ storefront_db_port }} -U {{ storefront_db_user }} -d {{ storefront_db_name }} -c "{{ row_check_sql.stdout }}"
+      register: colo_row_check
+      changed_when: false
+      environment:
+        PGPASSWORD: "{{ storefront_db_password | default('') }}"
+      when: row_check_sql.stdout | length > 0
+
+    - name: Print colo row check
+      ansible.builtin.debug:
+        msg:
+          - "Run the same SQL on prod RDS after DMS lag is zero."
+          - "{{ colo_row_check.stdout | default('no public tables') }}"
+
+    - name: Build sequence setval statements from colo
+      ansible.builtin.shell: |
+        set -euo pipefail
+        psql -h {{ storefront_db_host }} -p {{ storefront_db_port }} -U {{ storefront_db_user }} -d {{ storefront_db_name }} -Atc "
+        SELECT format(
+          'SELECT setval(%L::regclass, %s);',
+          format('%I.%I', schemaname, sequencename),
+          last_value
+        )
+        FROM pg_sequences
+        WHERE schemaname = '{{ storefront_db_schema }}' AND last_value IS NOT NULL;
+        "
+      register: sequence_sql
+      changed_when: false
+      environment:
+        PGPASSWORD: "{{ storefront_db_password | default('') }}"
+
+    - name: Print sequence statements for prod RDS only
+      ansible.builtin.debug:
+        msg:
+          - "Do not run these on the colo. Apply on prod RDS after the row check."
+          - "{{ sequence_sql.stdout_lines | default([]) }}"
+
+- name: Remind out-of-scope proofs
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Operator-owned steps
+      ansible.builtin.debug:
+        msg:
+          - "MGN start-cutover and cutover-instance checksum: AWS CLI / SSM (not Ansible estate mgmt)"
+          - "Volume snapshot before DNS: aws ec2 create-snapshot (CUT-6)"
+          - "Prod Argo sync then GET /health: argocd + kubectl port-forward (PRF-4)"
+          - "DNS go lines: write docs/cutover.md then change DNS"

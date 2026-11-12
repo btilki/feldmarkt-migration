@@ -1,0 +1,25 @@
+# Copy to hosts.yml (gitignored). Fill real addresses over the site-to-site VPN.
+# No passwords in this file. Use ansible/group_vars/all/vault.yml.example for secrets.
+
+all:
+  children:
+    archiv:
+      hosts:
+        archiv.colo.internal:
+          ansible_host: REPLACE_WITH_ARCHIV_IP
+          ansible_user: ubuntu
+    storefront:
+      hosts:
+        storefront.colo.internal:
+          ansible_host: REPLACE_WITH_STOREFRONT_IP
+          ansible_user: ubuntu
+    colo:
+      children:
+        archiv:
+        storefront:
+    # Private EC2 that MGN launches at cutover. Not day-2 estate management.
+    archiv_cutover:
+      hosts:
+        archiv-cutover.aws.internal:
+          ansible_host: REPLACE_WITH_CUTOVER_PRIVATE_IP
+          ansible_user: ubuntu

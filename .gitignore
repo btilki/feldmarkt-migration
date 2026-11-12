@@ -1,3 +1,4 @@
+.DS_Store
 .terraform/
 target/
 *.tfstate
@@ -9,3 +10,7 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 .terraform.tfvars
+*.vault
+vault.yml
+ansible/inventory/hosts.yml
+ansible/group_vars/*/vault.yml

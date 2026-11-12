@@ -1,0 +1,18 @@
+---
+# Blueprint playbooks use placeholders and intentional become on freeze.
+profile: basic
+exclude_paths:
+  - inventory/hosts.yml
+  - group_vars/all/vault.yml
+skip_list:
+  - yaml[line-length]
+  - name[template]
+  - risky-shell-pipe
+  - command-instead-of-shell
+  - command-instead-of-module
+  - no-changed-when
+  - partial-become
+  - ignore-errors
+warn_list:
+  - experimental
+offline: true

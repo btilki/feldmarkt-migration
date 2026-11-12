@@ -1,0 +1,35 @@
+---
+# Blueprint defaults. Override in inventory or a local vault. Do not commit secrets.
+
+feldmarkt_window_tz: CET
+feldmarkt_window_start: "02:00"
+feldmarkt_window_end: "06:00"
+feldmarkt_dns_ttl_seconds: 60
+
+archiv_service: archiv
+archiv_port: 8443
+archiv_data_path: /var/lib/feldmarkt
+
+storefront_service: storefront
+storefront_port: 8080
+storefront_db_name: storefront
+storefront_db_schema: public
+storefront_db_user: postgres
+# Connection to colo PostgreSQL on the storefront host. Password from vault when used.
+storefront_db_host: 127.0.0.1
+storefront_db_port: 5432
+
+# AWS identifiers filled after wave 1 / wave 2 apply. Placeholders fail closed in asserts.
+aws_region: eu-central-1
+mgn_source_server_id: REPLACE_WITH_MGN_SOURCE_SERVER_ID
+dms_replication_task_arn: REPLACE_WITH_DMS_TASK_ARN
+prod_rds_endpoint: REPLACE_WITH_PROD_ENDPOINT
+
+# DNS record names the operator already owns. Playbooks check TTL; they do not rewrite zones
+# unless dns_ttl_enforce is true and the provider CLI is configured locally.
+archiv_private_dns_name: archiv.feldmarkt.internal
+storefront_public_dns_name: shop.example.invalid
+dns_ttl_enforce: false
+
+# Replication role expected for DMS on colo PostgreSQL (presence check only).
+dms_replication_role: dms_user

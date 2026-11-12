@@ -1,21 +1,21 @@
 # Feldmarkt migration architecture
 
-**Status:** blueprint. Three pictures of the move in [`scenario.md`](scenario.md), locked by [`decisions.md`](decisions.md). Nothing here has been applied to a cloud account. This is not an employer system.
+> Status: Blueprint. Three pictures of the move in [`scenario.md`](scenario.md), locked by [`decisions.md`](decisions.md). Nothing here has been applied to a cloud account. This is not an employer system.
 
-The **VPC** (**Virtual Private Cloud**), the **EKS** (**Elastic Kubernetes Service**) cluster, and the **Argo CD** (**Continuous Delivery**) path already exist. This architecture does not build them again (D2). It shows how `archiv` and `storefront` join them.
+The VPC, the EKS cluster, and the Argo CD path already exist. This architecture does not build them again (D2). It shows how `archiv` and `storefront` join them.
 
 | Box | Owner in this blueprint |
 |-----|-------------------------|
 | Frankfurt colo, both virtual machines | Source. Stays on through hypercare. |
-| Site-to-site **VPN** (**Virtual Private Network**) | Temporary path for **MGN** (**AWS Application Migration Service**) and **DMS** (**AWS Database Migration Service**) (D5). |
-| MGN, **EC2** (**Elastic Compute Cloud**) cutover instance, private **DNS** (**Domain Name System**) for `archiv` | Wave 1. |
-| DMS, private **RDS** (**Amazon Relational Database Service**), `storefront` image, digest pin, **CI** (**Continuous Integration**) shape | Wave 2. |
+| Site-to-site VPN | Temporary path for MGN and DMS (D5). |
+| MGN, EC2 cutover instance, private DNS for `archiv` | Wave 1. |
+| DMS, private RDS, `storefront` image, digest pin, CI shape | Wave 2. |
 | EKS, Argo CD, load balancer | Existing platform. Used, not created here. |
 | Colo power-off and VPN removal | Wave 3. Described only. No code. |
 
 ## 1. Today, in the colo
 
-Callers never touch **AWS** (**Amazon Web Services**). Two Ubuntu virtual machines sit in the rented Frankfurt rack.
+Callers never touch AWS. Two Ubuntu virtual machines sit in the rented Frankfurt rack.
 
 ```mermaid
 flowchart LR
@@ -28,8 +28,8 @@ flowchart LR
 
 | Piece | How it runs |
 |-------|-------------|
-| `archiv` | systemd on port 8443. Shop data is the 40 GB disk. |
-| `storefront` | systemd runs one Spring Boot **JAR** (**Java Archive**). A shell script copies each new JAR onto the machine. |
+| `archiv` | systemd on port 8443. Archive data is the 40 GB disk at `/var/lib/feldmarkt`. |
+| `storefront` | systemd runs one Spring Boot JAR. A shell script copies each new JAR onto the machine. |
 | PostgreSQL | On the `storefront` virtual machine. Same major version that RDS will run. The JAR is the only application that writes it. |
 | DNS | Private record points at `archiv`. Public record points at `storefront`. |
 
@@ -76,7 +76,7 @@ Dev and stage must not point at the RDS instance that is receiving the productio
 
 ## 3. Sunday window
 
-Writes freeze on both workloads at 02:00 **CET** (**Central European Time**). The pictures above stay in place until the proofs pass. This is the order inside the window (D6).
+Writes freeze on both workloads at 02:00 CET. The pictures above stay in place until the proofs pass. This is the order inside the window (D6).
 
 ```mermaid
 flowchart TD
@@ -133,13 +133,13 @@ flowchart LR
 | Caller | Production target | Rollback |
 |--------|-------------------|----------|
 | Archive users | EC2 in a private subnet, port 8443, over the VPN while it is up | 30 minutes. Private DNS back to the colo machine. Cutover instance stopped and kept. |
-| Shoppers | Existing load balancer, through the prod Ingress, to the EKS pods | 15 minutes. Stop the prod pods, stop the DMS task, point DNS back at the colo **VM** (**virtual machine**), revert the Git digest pin. |
+| Shoppers | Existing load balancer, through the prod Ingress, to the EKS pods | 15 minutes. Stop the prod pods, stop the DMS task, point DNS back at the colo VM, revert the Git digest pin. |
 | Shop data | RDS is the writer | Application pointed back at colo PostgreSQL. Only rows from the write freeze are recovered. Rows written to RDS after the switch are not copied back (D6). |
 
 Wave 3, after those seven days, removes the VPN and the colo machines. The two archive users then reach port 8443 by Systems Manager port forwarding. The instance stays private. That picture has no code in this repository. The instance profile from wave 1 is what makes the forwarding possible.
 
 ## What the later code has to match
 
-Wave 1 code is the private EC2 landing shape for the MGN cutover instance: subnet with no public address, Systems Manager, no inbound **SSH** (**Secure Shell**) from the internet, and the snapshot timing before DNS.
+Wave 1 code is the private EC2 landing shape for the MGN cutover instance: subnet with no public address, Systems Manager, no inbound SSH from the internet, and the snapshot timing before DNS.
 
 Wave 2 code is the `storefront` chart, the digest pin for dev, stage, and prod, the CI shape that opens a digest change and does not deploy, and the private RDS plus DMS replication shape. The production pin points at the DMS target only for the Sunday cutover. Dev and stage point at the non-production RDS data.

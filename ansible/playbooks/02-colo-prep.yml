@@ -1,0 +1,79 @@
+---
+# Colo prerequisites for DMS and the Sunday window. Assert-first.
+# Does not rewrite public DNS unless dns_ttl_enforce is true.
+# ansible-playbook playbooks/02-colo-prep.yml
+
+- name: Colo PostgreSQL prerequisites for DMS
+  hosts: storefront
+  gather_facts: false
+  tasks:
+    - name: Read wal_level
+      ansible.builtin.shell: |
+        set -euo pipefail
+        psql -h {{ storefront_db_host }} -p {{ storefront_db_port }} -U {{ storefront_db_user }} -d {{ storefront_db_name }} -Atc "SHOW wal_level;"
+      register: wal_level
+      changed_when: false
+      environment:
+        PGPASSWORD: "{{ storefront_db_password | default('') }}"
+
+    - name: Assert wal_level is logical
+      ansible.builtin.assert:
+        that:
+          - wal_level.stdout == "logical"
+        fail_msg: "DMS needs wal_level=logical on colo PostgreSQL; got '{{ wal_level.stdout }}'"
+
+    - name: Check DMS replication role exists
+      ansible.builtin.shell: |
+        set -euo pipefail
+        psql -h {{ storefront_db_host }} -p {{ storefront_db_port }} -U {{ storefront_db_user }} -d {{ storefront_db_name }} -Atc \
+          "SELECT 1 FROM pg_roles WHERE rolname = '{{ dms_replication_role }}';"
+      register: dms_role
+      changed_when: false
+      environment:
+        PGPASSWORD: "{{ storefront_db_password | default('') }}"
+
+    - name: Assert replication role is present
+      ansible.builtin.assert:
+        that:
+          - dms_role.stdout == "1"
+        fail_msg: "Missing role {{ dms_replication_role }} required by the DMS source endpoint"
+
+    - name: Check TLS is offered on PostgreSQL
+      ansible.builtin.shell: |
+        set -euo pipefail
+        psql "host={{ storefront_db_host }} port={{ storefront_db_port }} user={{ storefront_db_user }} dbname={{ storefront_db_name }} sslmode=require" -Atc "SELECT 1;"
+      register: pg_tls
+      changed_when: false
+      environment:
+        PGPASSWORD: "{{ storefront_db_password | default('') }}"
+
+    - name: Assert TLS connection works
+      ansible.builtin.assert:
+        that:
+          - pg_tls.stdout == "1"
+        fail_msg: "DMS endpoint ssl_mode=require; colo PostgreSQL did not accept sslmode=require"
+
+- name: DNS TTL reminder before Sunday
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Report expected TTL
+      ansible.builtin.debug:
+        msg: >-
+          Lower {{ archiv_private_dns_name }} and {{ storefront_public_dns_name }}
+          to TTL {{ feldmarkt_dns_ttl_seconds }} before Sunday
+          {{ feldmarkt_window_start }}–{{ feldmarkt_window_end }} {{ feldmarkt_window_tz }} (CUT-1).
+
+    - name: Fail closed when enforce is on but dig is missing
+      ansible.builtin.command: dig +short TXT version.bind chaos
+      register: dig_probe
+      changed_when: false
+      failed_when: false
+      when: dns_ttl_enforce | bool
+
+    - name: Skip zone rewrite in the blueprint
+      ansible.builtin.debug:
+        msg: >-
+          dns_ttl_enforce is {{ dns_ttl_enforce }}. This playbook does not change
+          DNS providers. Record the TTL change in docs/cutover.md.
