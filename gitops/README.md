@@ -7,7 +7,7 @@ The cluster and Argo CD already exist. These files are the `storefront` applicat
 | `envs/dev/storefront.yaml` digest | CI, by pull request. CI does not deploy. |
 | `envs/stage/storefront.yaml` digest | A reviewed promotion after dev is healthy. |
 | `envs/prod/storefront.yaml` digest | A reviewed promotion. Argo CD does not auto-sync prod. |
-| `database.host` | A person, from the wave 2 Terraform outputs. Dev and stage use the nonprod endpoint. Prod uses the DMS target. |
+| `database.host` | A person, from the wave 2 Terraform outputs. Dev and stage use the nonprod endpoint. Prod uses the DMS (Database Migration Service) target. |
 
 Sunday order for prod, from [`docs/cutover.md`](../docs/cutover.md):
 

@@ -22,9 +22,9 @@ A colo contract ends. Two Ubuntu virtual machines still run production: an inter
 
 ## Decision
 
-- Rehost `archiv` with MGN to a private EC2 instance. Systems Manager only. No public SSH ([D1](docs/decisions.md)).
+- Rehost `archiv` with MGN (Application Migration Service) to a private EC2 instance. Systems Manager only. No public SSH ([D1](docs/decisions.md)).
 - Replatform the same Spring Boot JAR onto the existing EKS GitOps path. CI opens a digest change. Argo CD deploys. CI never deploys ([D2](docs/decisions.md)).
-- Move PostgreSQL to private RDS with DMS. Same major version, same schema ([D4](docs/decisions.md)).
+- Move PostgreSQL to private RDS with DMS (Database Migration Service). Same major version, same schema ([D4](docs/decisions.md)).
 - DNS is the caller switch on Sunday 02:00–06:00 CET, only after proofs. Seven days of hypercare with the colo still on for rollback ([D6](docs/decisions.md)).
 - Ansible encodes prep, freeze, proofs, and a check-only validate after MGN cutover. It is not day-2 estate management ([D8](docs/decisions.md)).
 

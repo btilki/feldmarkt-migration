@@ -15,8 +15,8 @@ Record these before Sunday 02:00 CET. A blank line means the window does not sta
 | Check | Record |
 |-------|--------|
 | DNS TTL for the private `archiv` record and the public `storefront` record is 60 seconds (CUT-1) | Changed at: |
-| MGN test instance booted and served port 8443 (PRF-3) | Date: |
-| DMS task is running over the VPN into the private production RDS (TGT-7) | Task: |
+| MGN (Application Migration Service) test instance booted and served port 8443 (PRF-3) | Date: |
+| DMS (Database Migration Service) task is running over the VPN into the private production RDS (TGT-7) | Task: |
 | Schema-only copy is already on prod RDS: tables, indexes, foreign keys, defaults, and sequences. DMS table preparation is `DO_NOTHING` | Applied at: |
 | `storefront` dev `GET /health` returned 200 on its digest, against non-production RDS (PRF-4) | Digest: |
 | `storefront` stage `GET /health` returned 200 on its digest, against non-production RDS (PRF-4) | Digest: |

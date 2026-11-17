@@ -2,7 +2,7 @@
 
 Blueprint only. Do not apply this stack as part of writing the repository. It has not been applied to a cloud account.
 
-MGN launches the cutover instance after the agent on the Frankfurt virtual machine has replicated it. This stack is the network and access that instance lands in.
+MGN (Application Migration Service) launches the cutover instance after the agent on the Frankfurt virtual machine has replicated it. This stack is the network and access that instance lands in.
 
 | Resource | Job |
 |----------|-----|

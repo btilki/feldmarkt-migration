@@ -10,7 +10,7 @@ Read [scenario.md](scenario.md), [decisions.md](decisions.md), and [cutover.md](
 |------|-----|------|----------|
 | Terraform | >= 1.9, AWS provider ~> 6.0 | Apply [wave 1](../terraform/wave1-archiv/) and [wave 2](../terraform/wave2-storefront/) | Launch the `archiv` machine. Deploy `storefront`. |
 | Ansible | >= 2.15 | Colo inventory, prep asserts, Sunday freeze, proof helpers, post-MGN check-only validate, rollback checks ([ansible/](../ansible/)) | Rebuild `archiv`. Replace MGN or DMS. Day-2 estate management |
-| AWS CLI | v2 | MGN settings, DMS start and stop, the volume snapshot, Systems Manager, DNS TTL | Deploy to the cluster |
+| AWS CLI | v2 | MGN (Application Migration Service) settings, DMS (Database Migration Service) start and stop, the volume snapshot, Systems Manager, DNS TTL | Deploy to the cluster |
 | Session Manager plugin | current | Operator shell on `archiv`. After wave 3, the two users reach port 8443 through it | Replace private DNS during the seven days |
 | Helm | 3 | Render the chart and read the manifest | Apply the chart. Argo CD is the deployer |
 | Argo CD CLI | v2, already on the cluster | Manual prod sync. Scale prod to 0 on rollback | Run inside CI |

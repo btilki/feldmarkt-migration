@@ -4,7 +4,7 @@
 
 Each record states what we chose, why it won, and what this wave refuses.
 
-## D1. Rehost `archiv` with MGN
+## D1. Rehost `archiv` with MGN (Application Migration Service)
 
 ### Choice
 
@@ -53,7 +53,7 @@ The colo contract is the deadline. A version upgrade and a microservice split ea
 | Leave `storefront` in the colo | The colo contract is ending, and the release path stays a shell script. |
 | Turn `storefront` off | The shop is still in use. |
 
-## D4. Replatform PostgreSQL to RDS with DMS
+## D4. Replatform PostgreSQL to RDS with DMS (Database Migration Service)
 
 ### Choice
 

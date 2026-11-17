@@ -4,7 +4,7 @@ Blueprint only. Do not apply this stack as part of writing the repository. It ha
 
 | Resource | Job |
 |----------|-----|
-| RDS `nonprod` | Private PostgreSQL for dev and stage. Its security group allows only the dev and stage pod group. Not a DMS target. |
+| RDS `nonprod` | Private PostgreSQL for dev and stage. Its security group allows only the dev and stage pod group. Not a DMS (Database Migration Service) target. |
 | RDS `prod` | Private PostgreSQL. DMS target. Its security group allows only the prod pod group and DMS. Public access off. Deletion protection on. Minor upgrades off, so the engine version stays the colo major version. |
 | DMS | Replication instance in the private subnets, source colo PostgreSQL, target prod RDS, full load plus CDC. Table preparation is `DO_NOTHING`. Full LOB mode. Row validation on. The task is created stopped. Apply the schema-only copy to prod RDS before starting it. |
 | ECR | Immutable repository for the storefront image. |

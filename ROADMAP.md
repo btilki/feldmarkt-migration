@@ -1,6 +1,6 @@
 # Roadmap — feldmarkt-migration
 
-Vision: A defendable colo → AWS migration blueprint. Rehost with MGN, replatform Spring Boot and PostgreSQL onto an existing EKS GitOps path, with Ansible as migration runbooks only.
+Vision: A defendable colo → AWS migration blueprint. Rehost with MGN (Application Migration Service), replatform Spring Boot and PostgreSQL onto an existing EKS GitOps path, with Ansible as migration runbooks only.
 
 Status: Blueprint encoded. Not applied to a cloud account.
 
@@ -14,7 +14,7 @@ Roadmap **phases** (0–8) track portfolio milestones. Migration **waves** in [d
 |-------|--------|--------|
 | 0 | Scenario, requirements, decisions, architecture, cutover note | Done |
 | 1 | Wave 1 Terraform — archiv landing shape | Done |
-| 2 | Wave 2 Terraform — RDS, DMS stopped, ECR | Done |
+| 2 | Wave 2 Terraform — RDS, DMS (Database Migration Service) stopped, ECR | Done |
 | 3 | Chart, GitOps pins, External Secrets, digest CI | Done |
 | 4 | Implementation guide | Done |
 | 5 | Ansible migration runbooks + lint CI + post-move validate | Done |

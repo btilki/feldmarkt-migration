@@ -2,7 +2,7 @@
 
 > Status: Blueprint. These playbooks encode prep, freeze, proofs, post-move validation, and rollback checks for the Sunday window. Nothing here has been applied to a colo or a cloud account. This is not an employer system.
 
-Decision: [D8](../docs/decisions.md). Ansible is migration automation. It does not rebuild `archiv`, does not replace MGN or DMS, and is not day-2 estate management for the cutover EC2 instance. After MGN launches that instance, `07-validate-archiv-cutover.yml` only asserts that the copy is healthy.
+Decision: [D8](../docs/decisions.md). Ansible is migration automation. It does not rebuild `archiv`, does not replace MGN (Application Migration Service) or DMS (Database Migration Service), and is not day-2 estate management for the cutover EC2 instance. After MGN launches that instance, `07-validate-archiv-cutover.yml` only asserts that the copy is healthy.
 
 ## Tools
 

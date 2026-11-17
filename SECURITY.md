@@ -17,7 +17,7 @@ Related: [docs/requirements.md](docs/requirements.md) (SEC-1…SEC-5) · [docs/d
 
 1. Human + Git — change desired state via pull request  
 2. Argo CD — reconciler for storefront on the existing cluster  
-3. AWS account — VPC, EKS, RDS, DMS, MGN, ECR (landing zone assumed; this repo does not create the VPC/EKS)  
+3. AWS account — VPC, EKS, RDS, DMS (Database Migration Service), MGN (Application Migration Service), ECR (landing zone assumed; this repo does not create the VPC/EKS)  
 4. Colo — source of truth until Sunday DNS; stays on for seven-day hypercare  
 
 ## Reporting

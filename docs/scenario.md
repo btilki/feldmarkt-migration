@@ -10,8 +10,8 @@ The destination platform already exists as a pattern: a VPC landing zone and an 
 
 | Name | Today | Path | Why this path |
 |------|--------|------|----------------|
-| `archiv` | Ubuntu VM. Internal archive for two people. systemd service on port 8443. 40 GB data disk at `/var/lib/feldmarkt`. | Rehost to EC2 with MGN | The value is the disk and the installed service. Containerizing it would be a rewrite. |
-| `storefront` | Ubuntu VM. One Spring Boot monolith: pages and API in a single JAR, systemd on port 8080. A shell script copies each new JAR onto the machine. PostgreSQL on that same VM holds the shop data. | Replatform the JAR to the existing EKS GitOps path. Replatform PostgreSQL to RDS with DMS | The JAR has no local shop data. The pain is the release path and a database that still runs on the virtual machine. The application stays the same monolith, on the same Spring Boot version, with the same schema. |
+| `archiv` | Ubuntu VM. Internal archive for two people. systemd service on port 8443. 40 GB data disk at `/var/lib/feldmarkt`. | Rehost to EC2 with MGN (Application Migration Service) | The value is the disk and the installed service. Containerizing it would be a rewrite. |
+| `storefront` | Ubuntu VM. One Spring Boot monolith: pages and API in a single JAR, systemd on port 8080. A shell script copies each new JAR onto the machine. PostgreSQL on that same VM holds the shop data. | Replatform the JAR to the existing EKS GitOps path. Replatform PostgreSQL to RDS with DMS (Database Migration Service) | The JAR has no local shop data. The pain is the release path and a database that still runs on the virtual machine. The application stays the same monolith, on the same Spring Boot version, with the same schema. |
 
 A rewrite, a split into microservices, a Spring Boot upgrade, a SaaS replacement, leaving a workload in the colo, or turning a workload off is the wrong call for this wave. Those options stay recorded here so the choice is visible. The decision records will explain them one by one.
 

@@ -7,7 +7,7 @@ The VPC, the EKS cluster, and the Argo CD path already exist. This architecture 
 | Box | Owner in this blueprint |
 |-----|-------------------------|
 | Frankfurt colo, both virtual machines | Source. Stays on through hypercare. |
-| Site-to-site VPN | Temporary path for MGN and DMS (D5). |
+| Site-to-site VPN | Temporary path for MGN (Application Migration Service) and DMS (Database Migration Service) (D5). |
 | MGN, EC2 cutover instance, private DNS for `archiv` | Wave 1. |
 | DMS, private RDS, `storefront` image, digest pin, CI shape | Wave 2. |
 | EKS, Argo CD, load balancer | Existing platform. Used, not created here. |

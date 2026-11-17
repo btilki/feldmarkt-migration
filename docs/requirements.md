@@ -20,12 +20,12 @@ Where each workload lands. The VPC and the EKS GitOps platform already exist. Th
 
 | ID | Requirement | Proof |
 |----|-------------|-------|
-| TGT-1 | `archiv` is rehosted to EC2 in `eu-central-1` with MGN. The installed service and the disk stay as they are. | Wave 1 describes an MGN source, continuous replication, a test instance, and a cutover instance. |
+| TGT-1 | `archiv` is rehosted to EC2 in `eu-central-1` with MGN (Application Migration Service). The installed service and the disk stay as they are. | Wave 1 describes an MGN source, continuous replication, a test instance, and a cutover instance. |
 | TGT-2 | The MGN agent on `archiv` replicates over a site-to-site VPN from the colo to the existing VPC. The VPN exists for the move and for the seven-day hypercare window. | A network note shows the VPN up before replication starts and still up during the seven days. |
 | TGT-3 | The cutover instance for `archiv` runs in a private subnet. | Subnet and route for the cutover instance have no public address. |
 | TGT-4 | The `storefront` JAR is replatformed onto the existing EKS GitOps path on the same Spring Boot version. CI publishes an image and opens a digest change. Argo CD deploys that digest. CI does not deploy. | Wave 2 shows a digest pin per environment and a pipeline with no `kubectl apply` and no Argo CD sync. The image manifest names the same Spring Boot version as INV-2. |
 | TGT-5 | `storefront` is promoted dev, then stage, then prod. Dev and stage use RDS with non-production data. Production DNS and production writes stay on the colo until the Sunday window. | Dev and stage are healthy before the window. The prod DNS record still names the colo VM until cutover. |
-| TGT-6 | PostgreSQL is replatformed to RDS PostgreSQL in `eu-central-1` with DMS. The major version and the schema stay the same. | Wave 2 describes a DMS source, an RDS target of the same major version, table preparation `DO_NOTHING`, full LOB mode, and row validation. A schema-only copy is on prod RDS before the task starts. |
+| TGT-6 | PostgreSQL is replatformed to RDS PostgreSQL in `eu-central-1` with DMS (Database Migration Service). The major version and the schema stay the same. | Wave 2 describes a DMS source, an RDS target of the same major version, table preparation `DO_NOTHING`, full LOB mode, and row validation. A schema-only copy is on prod RDS before the task starts. |
 | TGT-7 | DMS replicates over the same site-to-site VPN. Replication is already running before the Sunday window. | The replication task is recorded as running before Sunday 02:00 CET. |
 
 ## 3. Cutover
