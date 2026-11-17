@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.2] — 2026-11-17
+
+### Fixed
+
+- `docs/scenario.md`: storefront database row aligns RBK-4 recovery time and rollback columns.
+
+### Changed
+
+- `docs/lessons-learned.md`: impersonal voice aligned with the rest of the docs.
+- `assets/images/README.md`: authoritative lowercase `ansible/` and `.github/workflows/` paths vs map shorthand.
+- `ROADMAP.md`: roadmap phases vs migration waves called out.
+- Root README: storefront digest workflow badge.
+- `app/storefront/README.md`: version line without decorative bold.
+
 ## [0.2.1] — 2026-11-17
 
 ### Fixed

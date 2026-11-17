@@ -6,6 +6,7 @@ On-premises workload migration to AWS: rehost one virtual machine, replatform on
 [![AWS](https://img.shields.io/badge/AWS-eu--central--1-FF9900.svg)](https://aws.amazon.com/)
 [![Ansible](https://img.shields.io/badge/Ansible-migration%20runbooks-EE0000.svg)](ansible/README.md)
 [![ansible lint](https://github.com/btilki/feldmarkt-migration/actions/workflows/ansible-lint.yml/badge.svg)](https://github.com/btilki/feldmarkt-migration/actions/workflows/ansible-lint.yml)
+[![storefront digest](https://github.com/btilki/feldmarkt-migration/actions/workflows/storefront-digest.yml/badge.svg)](https://github.com/btilki/feldmarkt-migration/actions/workflows/storefront-digest.yml)
 [![Maturity](https://img.shields.io/badge/maturity-blueprint-blue.svg)](docs/scenario.md)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 

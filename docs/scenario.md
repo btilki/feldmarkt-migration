@@ -63,7 +63,7 @@ At the start of the window, writes freeze on `archiv` and on `storefront`. MGN f
 |----------|----------------|---------------|----------|
 | `archiv` | The write freeze. Data written before the freeze is on the cutover instance. | 30 minutes. Point private DNS back at the colo machine. | Colo VM still on. New EC2 instance stopped and kept. Volume snapshotted before DNS moves. |
 | `storefront` application | The process stores no shop data on local disk. | 15 minutes (RBK-3). Scale prod to 0 replicas, stop the DMS task, point DNS back at the colo VM, and revert the Git digest pin. See [cutover](cutover.md). | Colo VM still on. |
-| `storefront` database | The write freeze. Rows written before the freeze are on RDS. | Point the application back at colo PostgreSQL. | Writes that landed on RDS after the switch are not copied back to the colo. |
+| `storefront` database | The write freeze. Rows written before the freeze are on RDS. | After application rollback (RBK-3). Point the application at colo PostgreSQL (RBK-4). See [cutover](cutover.md). | Colo PostgreSQL stays on. Rows written to RDS after the switch are not copied back. |
 
 The colo machines, colo PostgreSQL, and the VPN stay for seven days after a successful DNS change. Those seven days are the hypercare window. During those seven days RDS is the production writer.
 

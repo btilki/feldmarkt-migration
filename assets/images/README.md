@@ -13,3 +13,5 @@ Matches the repo story: `ansible/`, `charts/`, `gitops/`, `terraform/`, `app/`, 
 | `app/` | Stand-in Spring Boot app (`Dockerfile`, JAR source). Kubernetes manifests live under `charts/` and `gitops/`. |
 | Engineering domain — migration | AWS MGN, DMS, and Ansible cutover runbooks ([ansible/](../../ansible/)). |
 | Assumed security (existing platform) | Secrets Manager and External Secrets Operator. |
+
+On disk, paths are lowercase: `ansible/`, not `Ansible/`, and CI workflows live under `.github/workflows/` (leading dot). The PNG may shorten labels for layout; this table is authoritative.

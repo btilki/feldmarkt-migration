@@ -2,6 +2,8 @@
 
 Takeaways from designing this blueprint. This is not a lived cutover postmortem: nothing from this repository has been applied to a cloud account.
 
+These notes use the same impersonal operator voice as the rest of the docs.
+
 ---
 
 ## What worked in the design
@@ -11,14 +13,14 @@ Takeaways from designing this blueprint. This is not a lived cutover postmortem:
 - Encoding Sunday order in both prose and Ansible runbooks (freeze → proofs → validate → DNS) gives operators a single checklist.
 - Separating nonprod and prod RDS security groups closes a real blast-radius hole that a shared node SG would leave open.
 
-## What we corrected while writing
+## What was corrected while designing
 
 - Prod health cannot gate sync if pods only exist after sync. Order is row check → sequences → manual prod sync → health → DNS.
 - DMS defaults would drop schema and truncate LOBs. The task is `DO_NOTHING`, full LOB, validation on, with schema-only load first.
 - Digest CI must keep the `sha256:` field from `docker push`, not the size token on that line.
 - Rollback must scale prod to 0 and stop DMS before DNS returns to the colo.
 
-## Limits we accept (and would change for a lived run)
+## Accepted limits (and changes for a lived run)
 
 - Placeholders remain until a real inventory and landing-zone IDs exist.
 - VPN is required and not Terraform here.

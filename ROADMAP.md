@@ -8,6 +8,8 @@ Status: Blueprint encoded. Not applied to a cloud account.
 
 ## Phase overview
 
+Roadmap **phases** (0–8) track portfolio milestones. Migration **waves** in [docs/scenario.md](docs/scenario.md) (0–3) are the cutover story only. Phase 8 describes wave 3 (remove colo and VPN), not wave 2.
+
 | Phase | Title | Status |
 |-------|--------|--------|
 | 0 | Scenario, requirements, decisions, architecture, cutover note | Done |
