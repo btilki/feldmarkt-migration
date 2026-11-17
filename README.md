@@ -5,6 +5,7 @@ On-premises workload migration to AWS: rehost one virtual machine, replatform on
 [![Terraform](https://img.shields.io/badge/terraform-%3E%3D1.9-purple.svg)](https://www.terraform.io/)
 [![AWS](https://img.shields.io/badge/AWS-eu--central--1-FF9900.svg)](https://aws.amazon.com/)
 [![Ansible](https://img.shields.io/badge/Ansible-migration%20runbooks-EE0000.svg)](ansible/README.md)
+[![ansible lint](https://github.com/btilki/feldmarkt-migration/actions/workflows/ansible-lint.yml/badge.svg)](https://github.com/btilki/feldmarkt-migration/actions/workflows/ansible-lint.yml)
 [![Maturity](https://img.shields.io/badge/maturity-blueprint-blue.svg)](docs/scenario.md)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
@@ -28,7 +29,7 @@ A colo contract ends. Two Ubuntu virtual machines still run production: an inter
 
 ## Result
 
-The blueprint holds scenario, requirements, decisions, architecture, a blank cutover note, wave 1 and wave 2 Terraform, the storefront chart and GitOps pins, a stand-in image, and Ansible runbooks. Local proofs that exist today: `terraform validate`, `mvn verify`, `helm template`, `ansible-lint`. No lived cutover, no billable AWS resources from this repository.
+The blueprint holds scenario, requirements, decisions, architecture, a blank cutover note, wave 1 and wave 2 Terraform, the storefront chart and GitOps pins, a stand-in image, and Ansible runbooks. CI runs ansible lint and digest pull requests; local checks include Terraform validate, `mvn verify`, and `helm template` (see Proof). No lived cutover, no billable AWS resources from this repository.
 
 ---
 
@@ -47,12 +48,10 @@ The blueprint holds scenario, requirements, decisions, architecture, a blank cut
 
 This repository is a blueprint. There is no live cutover screenshot set.
 
-What has been checked locally while encoding the design:
-
-- Terraform validate for wave 1 and wave 2 (AWS provider 6.x)
-- `mvn verify` on the storefront stand-in (Spring Boot 3.5.5)
-- `helm template` for digests and prod Ingress
-- `ansible-playbook --syntax-check` and `ansible-lint` on `ansible/`
+| Where | What runs |
+|-------|-----------|
+| CI on push/PR | `ansible-lint` and `ansible-playbook --syntax-check` when `ansible/` changes ([workflow](.github/workflows/ansible-lint.yml)). Storefront digest PR for dev when app/chart paths change ([workflow](.github/workflows/storefront-digest.yml)). |
+| Local while encoding | `terraform validate` (wave 1 and wave 2, AWS provider 6.x), `mvn verify` on the stand-in (Spring Boot 3.5.5), `helm template` for digests and prod Ingress |
 
 Operator evidence for a real window still lives as blank lines in [docs/cutover.md](docs/cutover.md).
 
@@ -65,6 +64,7 @@ Operator evidence for a real window still lives as blank lines in [docs/cutover.
 - Site-to-site VPN is described and required; this repo has no Terraform for it.
 - Wave 3 (remove colo and VPN) is prose only.
 - VPC, EKS, Argo CD, and the ALB group are assumed from the existing landing zone ([boutique-eks-gitops](https://github.com/btilki/boutique-eks-gitops) pattern).
+
 More detail: [docs/lessons-learned.md](docs/lessons-learned.md) · [ROADMAP.md](ROADMAP.md)
 
 ---

@@ -9,7 +9,7 @@ Decision: [D8](../docs/decisions.md). Ansible is migration automation. It does n
 | Pin | Role |
 |-----|------|
 | Ansible >= 2.15 | Run the playbooks from a control host that reaches the colo over the site-to-site VPN |
-| AWS CLI v2 | Used by `03-preflight.yml` for MGN and DMS describes |
+| AWS CLI v2 | Used by `03-preflight.yml` for MGN and DMS `describe` API calls |
 | `psql` | Client major version matches colo PostgreSQL |
 | `ansible-vault` | Local secrets only; `vault.yml` is gitignored |
 

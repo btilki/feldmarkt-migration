@@ -11,7 +11,7 @@ MGN launches the cutover instance after the agent on the Frankfurt virtual machi
 | Launch template | Private subnet, no public IP address, the cutover security group, IMDSv2. No AMI. MGN supplies the replicated machine. There is no `aws_instance`. |
 | Replication security group | TCP 1500 from the colo CIDR only. Egress 443 is the MGN control plane. |
 
-The MGN replication template is not a Terraform resource in the AWS provider. The output `mgn_replication_settings` is the template MGN must use: the existing private subnet, the replication security group, no public IP, and `PRIVATE_IP` data plane routing.
+The MGN replication template is not a Terraform resource in the AWS provider. The output `mgn_replication_settings` holds values to copy into the MGN replication template: the existing private subnet, the replication security group, no public IP, and `PRIVATE_IP` data plane routing.
 
 The VPC, the private subnet, the site-to-site VPN, and a private path for TCP 443 from that subnet to the MGN service already belong to the landing zone. This stack does not create a VPC, a NAT gateway, or a public address.
 

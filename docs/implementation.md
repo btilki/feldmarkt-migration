@@ -9,7 +9,7 @@ Read [scenario.md](scenario.md), [decisions.md](decisions.md), and [cutover.md](
 | Tool | Pin | Does | Does not |
 |------|-----|------|----------|
 | Terraform | >= 1.9, AWS provider ~> 6.0 | Apply [wave 1](../terraform/wave1-archiv/) and [wave 2](../terraform/wave2-storefront/) | Launch the `archiv` machine. Deploy `storefront`. |
-| Ansible | >= 2.15 | Colo inventory, prep asserts, Sunday freeze, proof helpers, rollback checks ([ansible/](../ansible/)) | Rebuild `archiv`. Replace MGN or DMS. Day-2 estate management |
+| Ansible | >= 2.15 | Colo inventory, prep asserts, Sunday freeze, proof helpers, post-MGN check-only validate, rollback checks ([ansible/](../ansible/)) | Rebuild `archiv`. Replace MGN or DMS. Day-2 estate management |
 | AWS CLI | v2 | MGN settings, DMS start and stop, the volume snapshot, Systems Manager, DNS TTL | Deploy to the cluster |
 | Session Manager plugin | current | Operator shell on `archiv`. After wave 3, the two users reach port 8443 through it | Replace private DNS during the seven days |
 | Helm | 3 | Render the chart and read the manifest | Apply the chart. Argo CD is the deployer |
@@ -153,7 +153,10 @@ Record the task id in the cutover note (TGT-7). Dev and stage never use this RDS
 
 Tool: GitHub Actions for the image, `kubectl` once to register the manifests, Argo CD for the deploy.
 
-The digest job stays off until both repository variables are set. `ECR_REPOSITORY` is the wave 2 output `ecr_repository_url`. `AWS_ROLE_ARN` is an existing GitHub OIDC role that can push to that repository. This repository does not create that role.
+The digest job stays off until both repository variables are set.
+
+- `ECR_REPOSITORY` — wave 2 output `ecr_repository_url`
+- `AWS_ROLE_ARN` — existing GitHub OIDC role that can push to that repository. This repository does not create that role.
 
 ```bash
 gh variable set AWS_ROLE_ARN --body "$AWS_ROLE_ARN"
@@ -162,7 +165,9 @@ gh variable set ECR_REPOSITORY --body "$ECR_REPOSITORY"
 
 Push to `main` under `app/storefront/`. The workflow tests, pushes an immutable image, and opens a pull request that changes only `gitops/envs/dev/storefront.yaml`. The pin is the `sha256:` value from the push, 64 hex characters. Merge that pull request.
 
-Nothing in this repository registers the Applications or the ExternalSecrets on the cluster. After the dev digest on `main` is that published value, create the namespaces, apply the secrets, then register dev:
+Nothing in this repository registers the Applications or the ExternalSecrets on the cluster.
+
+After the dev digest on `main` is that published value, create the namespaces, apply the secrets, then register dev:
 
 ```bash
 kubectl create namespace storefront-dev --dry-run=client -o yaml | kubectl apply -f -
@@ -182,7 +187,10 @@ kubectl apply -f gitops/apps/storefront-prod.yaml
 
 Do not let CI edit stage or prod.
 
-Prove dev and stage with a read-only check. `GET /health` on port 8080 returns 200. Both use the nonprod endpoint. The image has no shell tools, so the check is a port forward from the operator machine.
+Prove dev and stage with a read-only check.
+
+- `GET /health` on port 8080 must return 200. Both envs use the nonprod endpoint.
+- The image has no shell tools, so the check is a port-forward from the operator machine.
 
 ```bash
 kubectl port-forward -n storefront-dev deploy/storefront 8080:8080
@@ -310,7 +318,9 @@ Then point public DNS back at the colo virtual machine and revert the Git digest
 
 ## 11. Seven days, then wave 3
 
-Leave the colo machines, colo PostgreSQL, and the VPN up for seven days. RDS is the writer for `storefront` if that go line was written. If the prod secret version changes, roll the deployment after External Secrets has updated `storefront-db-prod`.
+Leave the colo machines, colo PostgreSQL, and the VPN up for seven days. RDS is the writer for `storefront` if that go line was written.
+
+If the prod secret version changes, roll the deployment after External Secrets has updated `storefront-db-prod`.
 
 After those seven days with no open rollback, delete the site-to-site VPN and power off the colo machines. This repository has no code for that deletion.
 

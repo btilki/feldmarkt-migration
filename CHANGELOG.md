@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-11-17
+
+### Fixed
+
+- `docs/scenario.md`: storefront application rollback matches RBK-3 (stop prod, stop DMS, DNS, digest pin).
+
+### Changed
+
+- Architecture map PNG: `app/` stand-in label, Ansible on migration domain, Secrets Manager and ESO on assumed platform.
+- Architecture map legend in `assets/images/README.md`.
+- Root README Proof: CI vs local checks in a table; GitHub Actions badge for ansible lint.
+- `terraform/wave1-archiv/README.md`: MGN output described as values to copy into the replication template.
+- `ansible/README.md`: DMS/MGN CLI wording; `implementation.md` Ansible row includes playbook `07`, step 7 and 11 skim splits.
+
+## [0.2.0] — 2026-11-12
+
 ### Added
 
 - Ansible migration runbooks (`01`–`07`): inventory, colo prep, preflight, freeze, proofs, rollback checks, post-MGN validate.
