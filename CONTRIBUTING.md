@@ -25,9 +25,12 @@ mvn -B -ntp -f app/storefront/pom.xml verify
 # Chart render
 helm template storefront charts/storefront -f gitops/envs/prod/storefront.yaml
 
-# Ansible
-cd ansible && ansible-playbook --syntax-check -i inventory/hosts.example.yml playbooks/01-inventory.yml
-cd ansible && ansible-lint
+# Ansible (same scope as CI)
+cd ansible
+for playbook in playbooks/*.yml; do
+  ansible-playbook --syntax-check -i inventory/hosts.example.yml "${playbook}"
+done
+ansible-lint
 ```
 
 ## Where to start

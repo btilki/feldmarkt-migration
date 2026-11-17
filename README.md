@@ -51,7 +51,8 @@ This repository is a blueprint. There is no live cutover screenshot set.
 
 | Where | What runs |
 |-------|-----------|
-| CI on push/PR | `ansible-lint` and `ansible-playbook --syntax-check` when `ansible/` changes ([workflow](.github/workflows/ansible-lint.yml)). Storefront digest PR for dev when app/chart paths change ([workflow](.github/workflows/storefront-digest.yml)). |
+| CI on push/PR | `ansible-lint` and `ansible-playbook --syntax-check` on every playbook when `ansible/` changes ([workflow](.github/workflows/ansible-lint.yml)). |
+| CI on push to `main` | Storefront tests, optional ECR push, and a dev digest pull request when `app/storefront/` or `charts/storefront/` change. Digest job runs only if `AWS_ROLE_ARN` is set ([workflow](.github/workflows/storefront-digest.yml)). |
 | Local while encoding | `terraform validate` (wave 1 and wave 2, AWS provider 6.x), `mvn verify` on the stand-in (Spring Boot 3.5.5), `helm template` for digests and prod Ingress |
 
 Operator evidence for a real window still lives as blank lines in [docs/cutover.md](docs/cutover.md).
@@ -112,6 +113,8 @@ Before Sunday, production DNS and writes stay on the colo. Dev and stage rehears
 Use this map for the migration flow, platform components, and where each engineering area lives.
 
 ![Feldmarkt migration — repository map and architecture](assets/images/feldmarkt-aws-migration-architecture-map.png)
+
+Map labels and on-disk path spelling: [assets/images/README.md](assets/images/README.md).
 
 ---
 

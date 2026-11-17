@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.3] — 2026-11-17
+
+### Fixed
+
+- Root README Proof: digest CI is push to `main` only, not pull request; ansible syntax-check covers every playbook.
+- CONTRIBUTING: Ansible local checks match the ansible-lint workflow loop.
+
+### Changed
+
+- Root README: link to map label legend under architecture image.
+- ROADMAP: optional L1 rehearsal capture guidance; L1 paragraph wording tightened.
+- `docs/cutover.md`: optional L1 rehearsal labeling (prefix `Rehearsal —`, link to ROADMAP).
+
 ## [0.2.2] — 2026-11-17
 
 ### Fixed

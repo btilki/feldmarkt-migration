@@ -2,6 +2,8 @@
 
 > Status: Blueprint template. The operator fills the blank lines during a real window. Nothing here has been applied to a cloud account. This is not an employer system.
 
+For an optional throwaway rehearsal (roadmap L1), use this same template in a test account and prefix each record with `Rehearsal —` so it is not read as production. See [ROADMAP.md](../ROADMAP.md).
+
 Sunday 02:00–06:00 CET. DNS is the switch for callers. The database writer switches before public DNS for `storefront`. A failed proof stops that workload and leaves its DNS on the Frankfurt colo (CUT-5).
 
 Decisions: [D6](decisions.md), [D8](decisions.md). Order: [architecture §3](architecture.md). Ansible runbooks: [ansible/README.md](../ansible/README.md).

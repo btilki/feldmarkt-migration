@@ -37,6 +37,10 @@ Status words: Not started · In progress · Done · Described only
 
 B1–B3 are the portfolio finish line. L1 is optional and must stay labeled as a rehearsal, not an employer system.
 
+### If you run L1 (optional)
+
+Use a throwaway AWS account and tear everything down afterward. Record once in [docs/cutover.md](docs/cutover.md) (rehearsal, not production). Capture only what the blueprint already asks for: preflight timestamps, a digest merge on dev, and whether `terraform validate` and `ansible-lint` still passed on the same revision you applied. Do not claim employer systems or leave billable resources running.
+
 ---
 
 ## Explicitly out of scope
